@@ -54,6 +54,15 @@ export class TradeClient {
     return out;
   }
 
+  /** All trade stat definitions, flattened (needed to turn mod text into stat ids). Cache this per session. */
+  async stats(): Promise<{ id: string; text: string; type: string; options?: { id: number; text: string }[] }[]> {
+    const res = await this.call(`${SITE}/api/trade/data/stats`, { method: 'GET' });
+    const json = (await res.json()) as { result: { entries: any[] }[] };
+    return json.result.flatMap((g) =>
+      g.entries.map((e) => ({ id: e.id, text: e.text, type: e.type, options: e.option?.options })),
+    );
+  }
+
   tradeUrl(league: string, queryId: string, realm: Realm = 'pc'): string {
     const realmPart = realm === 'pc' ? '' : `${realm}/`;
     return `${SITE}/trade/search/${realmPart}${encodeURIComponent(league)}/${queryId}`;

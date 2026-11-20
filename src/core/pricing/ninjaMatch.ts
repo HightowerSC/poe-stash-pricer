@@ -2,6 +2,7 @@
 
 import type { PoeItem, PriceEstimate } from '../../shared/types';
 import type { NinjaRow } from '../ninja';
+import { clusterInfo, ninjaInfluenceVariant } from './classify';
 
 export function linkCount(item: PoeItem): number {
   if (!item.sockets?.length) return 0;
@@ -20,8 +21,10 @@ function prop(item: PoeItem, name: string): number | undefined {
 
 export class NinjaIndex {
   private byName = new Map<string, NinjaRow[]>();
+  private clusterRows: NinjaRow[] = [];
 
   constructor(rows: NinjaRow[]) {
+    this.clusterRows = rows.filter((r) => r.category === 'ClusterJewel');
     for (const r of rows) {
       const key = r.name.toLowerCase();
       const list = this.byName.get(key) ?? [];
@@ -34,12 +37,44 @@ export class NinjaIndex {
     return this.byName.size;
   }
 
+  /**
+   * Normal/magic bases worth crafting on: poe.ninja's BaseType table lists them by item level (82+)
+   * and influence. Picks the row with the highest item level not above ours.
+   */
+  priceBase(item: PoeItem): PriceEstimate | null {
+    const base = item.baseType || item.typeLine;
+    const variant = ninjaInfluenceVariant(item);
+    const rows = (this.byName.get(base.toLowerCase()) ?? []).filter(
+      (r) => r.category === 'BaseType' && (r.variant ?? null) === variant && (r.levelRequired ?? 0) <= item.ilvl,
+    );
+    if (!rows.length) return null;
+    const row = rows.reduce((best, r) => ((r.levelRequired ?? 0) > (best.levelRequired ?? 0) ? r : best));
+    return fromRow(item, row, `Baza ilvl ${row.levelRequired ?? '?'}${variant ? `, ${variant}` : ''}`);
+  }
+
+  /** Normal/magic cluster jewels: matched by enchant, passive count and item level. */
+  priceCluster(item: PoeItem): PriceEstimate | null {
+    const info = clusterInfo(item);
+    if (!info.enchant) return null;
+    const wanted = simplify(info.enchant);
+    const rows = this.clusterRows.filter((r) => {
+      if ((r.levelRequired ?? 0) > item.ilvl) return false;
+      if (info.passives && r.variant && !r.variant.startsWith(`${info.passives} `)) return false;
+      const name = simplify(r.name);
+      return name.includes(wanted) || wanted.includes(name);
+    });
+    if (!rows.length) return null;
+    const row = rows.reduce((best, r) => ((r.levelRequired ?? 0) > (best.levelRequired ?? 0) ? r : best));
+    return fromRow(item, row, `Cluster ${info.passives} pasywek, ilvl ${row.levelRequired ?? '?'}`);
+  }
+
   /** Returns null when poe.ninja has no row for this item (the caller then uses the trade site). */
   price(item: PoeItem): PriceEstimate | null {
     const isUnique = item.frameType === 3 || item.frameType === 9;
     const isGem = item.frameType === 4;
     const key = (isUnique ? item.name : item.typeLine || item.baseType).toLowerCase();
-    let candidates = this.byName.get(key);
+    // Bases and cluster jewels have their own matchers (item level, influence, enchant).
+    let candidates = this.byName.get(key)?.filter((c) => c.category !== 'BaseType' && c.category !== 'ClusterJewel');
     if (!candidates?.length) return null;
 
     if (isUnique) {
@@ -80,6 +115,22 @@ export class NinjaIndex {
     };
   }
 }
+
+function fromRow(item: PoeItem, row: NinjaRow, note: string): PriceEstimate {
+  const listings = row.listingCount ?? row.count ?? 0;
+  return {
+    itemId: item.id,
+    source: 'poe.ninja',
+    chaos: round(row.chaosValue),
+    low: round(row.chaosValue * 0.85),
+    high: round(row.chaosValue * 1.1),
+    confidence: listings >= 20 ? 'high' : listings >= 5 ? 'medium' : 'low',
+    sampleSize: listings,
+    note,
+  };
+}
+
+const simplify = (s: string) => s.toLowerCase().replace(/[\d%+#.]/g, '').replace(/\s+/g, ' ').trim();
 
 function gemDistance(r: NinjaRow, level: number, quality: number, corrupted: boolean): number {
   return Math.abs((r.gemLevel ?? 1) - level) * 10 + Math.abs((r.gemQuality ?? 0) - quality) + (!!r.corrupted !== corrupted ? 50 : 0);

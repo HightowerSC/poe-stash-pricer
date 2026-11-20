@@ -56,6 +56,11 @@ export interface PoeItem {
   fracturedMods?: string[];
   enchantMods?: string[];
   influences?: Record<string, boolean>;
+  fractured?: boolean;
+  synthesised?: boolean;
+  duplicated?: boolean;
+  /** GGG "extended" block from trade results, e.g. { category: 'jewels', subcategories: ['abyss'] }. */
+  extended?: { category?: string; subcategories?: string[] };
 }
 
 export type PriceSource = 'poe.ninja' | 'trade' | 'none';

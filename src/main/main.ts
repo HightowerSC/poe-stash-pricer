@@ -103,6 +103,11 @@ ipcMain.handle('watch:start', async (_e, demo: boolean) => {
   const trade = new TradeClient(fetch, profile.accountName);
   const engine = new PricingEngine(profile, currentLeague, ninja, trade);
   await engine.refreshPrices();
+  try {
+    engine.setTradeStats(await trade.stats());
+  } catch (e) {
+    send('status', { text: `Nie udało się pobrać statystyk trade: ${e instanceof Error ? e.message : e}`, error: true });
+  }
 
   const store = readJson<{ seen: string[]; items: PricedItem[] }>(itemsFile(currentLeague), { seen: [], items: [] });
   items = store.items;

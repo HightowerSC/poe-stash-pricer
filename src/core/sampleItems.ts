@@ -44,6 +44,36 @@ export function sampleItems(): PricedItem[] {
       price: { itemId: 's4', source: 'poe.ninja', chaos: 300, low: 270, high: 330, confidence: 'high', sampleSize: 30, note: 'SkillGem' },
     },
     {
+      firstSeen: at(7),
+      item: {
+        id: 's6', name: '', typeLine: 'Large Cluster Jewel', baseType: 'Large Cluster Jewel', icon: `${ICON}Jewels/NewGemBase3.png`, ilvl: 84, frameType: 1,
+        enchantMods: ['Adds 8 Passive Skills', 'Added Small Passive Skills grant: 12% increased Fire Damage'],
+        explicitMods: ['1 Added Passive Skill is Burning Bright', '1 Added Passive Skill is Prismatic Heart'],
+      },
+      price: {
+        itemId: 's6', source: 'trade', chaos: 140, low: 120, high: 160, confidence: 'medium', sampleSize: 6,
+        note: '6 ofert; filtry: enchant, 8 pasywek, 2 notable, ilvl 84+',
+        comparables: [
+          { chaos: 120, originalAmount: 120, originalCurrency: 'chaos', similarity: 1 },
+          { chaos: 135, originalAmount: 0.75, originalCurrency: 'divine', similarity: 1 },
+          { chaos: 160, originalAmount: 160, originalCurrency: 'chaos', similarity: 1 },
+        ],
+        tradeUrl: 'https://www.pathofexile.com/trade/search/Covens',
+      },
+    },
+    {
+      firstSeen: at(9),
+      item: {
+        id: 's7', name: 'Rapture Gaze', typeLine: 'Ghastly Eye Jewel', baseType: 'Ghastly Eye Jewel', icon: `${ICON}Jewels/GhastlyEyeJewel.png`, ilvl: 83, frameType: 2,
+        explicitMods: ['+48 to maximum Life', 'Minions deal 5 to 9 additional Physical Damage', '+12% to Fire Resistance', 'Minions have 6% increased Movement Speed'],
+      },
+      price: {
+        itemId: 's7', source: 'trade', chaos: 35, low: 28, high: 45, confidence: 'low', sampleSize: 3,
+        note: '3 oferty; filtry: życie, obrażenia sług',
+        tradeUrl: 'https://www.pathofexile.com/trade/search/Covens',
+      },
+    },
+    {
       firstSeen: at(20),
       item: { id: 's5', name: 'Gloom Grip', typeLine: 'Iron Gauntlets', baseType: 'Iron Gauntlets', icon: `${ICON}Armours/Gloves/IronGauntlets.png`, ilvl: 45, frameType: 2,
         explicitMods: ['+12 to Strength', '+8 to Accuracy Rating', '5% increased Stun Duration on Enemies'] },
