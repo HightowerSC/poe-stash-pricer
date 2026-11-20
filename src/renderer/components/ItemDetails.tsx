@@ -223,11 +223,11 @@ function CraftTable({ report, currency, divine }: { report: CraftReport; currenc
 }
 
 /** Copies the trade-site whisper to the clipboard; the player pastes it in game themselves. */
-export function CopyWhisper({ text }: { text: string }) {
+export function CopyWhisper({ text, label = 'Kopiuj wiadomość' }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
     <button className="btn ghost small" title={text} onClick={() => {
       void navigator.clipboard.writeText(text).then(() => { setDone(true); setTimeout(() => setDone(false), 1500); });
-    }}>{done ? 'Skopiowano ✓' : 'Kopiuj wiadomość'}</button>
+    }}>{done ? 'Skopiowano ✓' : label}</button>
   );
 }

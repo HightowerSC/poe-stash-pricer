@@ -1,6 +1,8 @@
 import type { FlipState, PricerApi, SessionState } from '../shared/api';
 import { makeBackup, restoreBackup } from '../core/extras/backup';
 import { FLIP_CURRENCIES, flipRow, rankFlips } from '../core/market/flip';
+import { summarizeStrategies } from '../core/market/farm';
+import type { FarmRun, FarmState } from '../shared/types';
 import type { AppSettings, PricedItem } from '../shared/types';
 import { demoItems, demoValue } from '../core/demo';
 import { sessionSummary } from '../core/extras/history';
@@ -26,6 +28,11 @@ export function browserMockApi(): PricerApi {
   let items: PricedItem[] = [];
   let watch: UpgradeWatchState = { settings: normalizeWatch(null), running: false, lastRun: null, lastError: null, finds: [] };
   const watchReported = new Set<string>();
+  const farm: { active: FarmRun | null; runs: FarmRun[] } = { active: null, runs: [
+    { id: 'r1', strategy: 'Essence + Harbinger', startedAt: new Date(Date.now() - 5 * 3_600_000).toISOString(), endedAt: new Date(Date.now() - 4 * 3_600_000).toISOString(), maps: 14, costPerMap: 8, extraChaos: 60, lootChaos: 820, lootCount: 41, notes: '' },
+    { id: 'r2', strategy: 'Strongbox', startedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(), endedAt: new Date(Date.now() - 2 * 3_600_000).toISOString(), maps: 12, costPerMap: 15, extraChaos: 0, lootChaos: 640, lootCount: 22, notes: '' },
+  ] };
+  const farmState = (): FarmState => ({ active: farm.active, live: farm.active ? { chaos: 310, count: 12 } : null, runs: farm.runs, strategies: summarizeStrategies(farm.runs), lastScan: new Date().toISOString() });
   let flips: FlipState = { at: null, rows: [], running: false };
   let session: SessionState = { summary: sessionSummary([], new Date().toISOString()), value: [], divineRate: null };
   const itemListeners = new Set<(i: PricedItem[]) => void>();
@@ -84,6 +91,20 @@ export function browserMockApi(): PricerApi {
       return { profiles: settings.profiles.length, files: Object.keys(r.files).length };
     },
     async getFlips() { return flips; },
+    async getFarm() { return farmState(); },
+    async startFarm(strategy, costPerMap) {
+      if (farm.active) throw new Error('Sesja farmy już trwa – najpierw ją zakończ.');
+      farm.active = { id: String(Date.now()), strategy: strategy || 'Bez nazwy', startedAt: new Date(Date.now() - 45 * 60_000).toISOString(), endedAt: null, maps: 0, costPerMap, extraChaos: 0, lootChaos: 0, lootCount: 0, notes: '' };
+      return farmState();
+    },
+    async finishFarm(maps, extraChaos, notes) {
+      if (!farm.active) throw new Error('Nie ma trwającej sesji farmy.');
+      farm.runs.push({ ...farm.active, endedAt: new Date().toISOString(), maps, extraChaos, notes, lootChaos: 900, lootCount: 34 });
+      farm.active = null;
+      return farmState();
+    },
+    async cancelFarm() { farm.active = null; return farmState(); },
+    async deleteFarmRun(id) { farm.runs = farm.runs.filter((r) => r.id !== id); return farmState(); },
     async scanFlips() {
       flips = { running: false, at: new Date().toISOString(), rows: rankFlips(FLIP_CURRENCIES.slice(0, 6).map(([id, name], i) => flipRow(id, name,
         [{ give: 1, take: [182, 12.5, 0.32, 0.16, 0.62, 0.13][i], stock: 50 }, { give: 1, take: [183, 12.6, 0.33, 0.17, 0.63, 0.13][i], stock: 80 }],

@@ -1,6 +1,6 @@
 {
   "name": "poe-stash-pricer",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "PoE Stash Pricer – wycena przedmiotów z Path of Exile 1 (poe.ninja + trade), widok zakładek, postać, overlay w grze. Jedna aplikacja dla Windows i Linux.",
   "license": "MIT",
   "private": true,

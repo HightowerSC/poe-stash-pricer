@@ -28,7 +28,8 @@ import type { UpgradeResult, UpgradeWatchSettings, UpgradeWatchState } from '../
 import { newFinds, normalizeWatch } from './hub/watch';
 import { BACKUP_FILE, makeBackup, restoreBackup, type Backup } from './extras/backup';
 import { FLIP_CURRENCIES, flipRow, rankFlips } from './market/flip';
-import type { FlipRow } from '../shared/types';
+import type { FarmRun, FarmState, FlipRow } from '../shared/types';
+import { runLoot, summarizeStrategies } from './market/farm';
 import { buildCharacter, demoCharacter, demoCharacters, sortCharacters, toSummary } from './character';
 
 export type ServiceEvent =
@@ -50,6 +51,7 @@ export class PricerService {
   private watchTimer: ReturnType<typeof setInterval> | null = null;
   private watchState: UpgradeWatchState | null = null;
   private watchReported = new Set<string>();
+  private lastScan: string | null = null;
   private flips: { at: string | null; rows: FlipRow[]; running: boolean } = { at: null, rows: [], running: false };
   /** Last items priced from Ctrl+C / pasted text, newest first. */
   private checks: PriceCheck[] = [];
@@ -274,6 +276,7 @@ export class PricerService {
         self.notify(enriched, profile);
       },
       onPresent: (ids, complete) => {
+        self.lastScan = new Date().toISOString();
         if (!complete) return;
         const present = new Set(ids);
         let changed = false;
@@ -510,6 +513,52 @@ export class PricerService {
     this.watchReported.clear();
     this.scheduleUpgradeWatch();
     return { profiles: settings.profiles.length, files: Object.keys(files).length };
+  }
+
+  // ---------- farm profitability ----------
+
+  getFarm(): FarmState {
+    const saved = this.readJson<{ active: FarmRun | null; runs: FarmRun[] }>('farm.json', { active: null, runs: [] });
+    const active = saved.active ?? null;
+    const runs = Array.isArray(saved.runs) ? saved.runs : [];
+    return { active, live: active ? runLoot(this.items, active.startedAt, null) : null, runs, strategies: summarizeStrategies(runs), lastScan: this.lastScan };
+  }
+
+  private saveFarm(active: FarmRun | null, runs: FarmRun[]) {
+    this.writeJson('farm.json', { active, runs: runs.slice(-300) });
+  }
+
+  startFarm(strategy: string, costPerMap: number): FarmState {
+    const st = this.getFarm();
+    if (st.active) throw new Error('Sesja farmy już trwa – najpierw ją zakończ.');
+    const run: FarmRun = {
+      id: Math.random().toString(36).slice(2, 10), strategy: String(strategy ?? '').trim().slice(0, 80) || 'Bez nazwy',
+      startedAt: new Date().toISOString(), endedAt: null, maps: 0, costPerMap: Math.max(0, Number(costPerMap) || 0),
+      extraChaos: 0, lootChaos: 0, lootCount: 0, notes: '',
+    };
+    this.saveFarm(run, st.runs);
+    return this.getFarm();
+  }
+
+  finishFarm(maps: number, extraChaos: number, notes: string): FarmState {
+    const st = this.getFarm();
+    if (!st.active) throw new Error('Nie ma trwającej sesji farmy.');
+    const endedAt = new Date().toISOString();
+    const loot = runLoot(this.items, st.active.startedAt, endedAt);
+    const run: FarmRun = { ...st.active, endedAt, maps: Math.max(0, Math.round(Number(maps) || 0)), extraChaos: Number(extraChaos) || 0, notes: String(notes ?? '').slice(0, 500), lootChaos: loot.chaos, lootCount: loot.count };
+    this.saveFarm(null, [...st.runs, run]);
+    return this.getFarm();
+  }
+
+  cancelFarm(): FarmState {
+    this.saveFarm(null, this.getFarm().runs);
+    return this.getFarm();
+  }
+
+  deleteFarmRun(id: string): FarmState {
+    const st = this.getFarm();
+    this.saveFarm(st.active, st.runs.filter((r) => r.id !== id));
+    return this.getFarm();
   }
 
   // ---------- currency flipping ----------

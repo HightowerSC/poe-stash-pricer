@@ -58,3 +58,55 @@ describe('backup', () => {
     expect(() => restoreBackup({ foo: 1 }, current)).toThrow(/kopii zapasowej/);
   });
 });
+
+import { bulkLots, bulkMessages, priceNote } from './bulk';
+import { runLoot, runProfit, summarizeStrategies } from './farm';
+import type { FarmRun, PricedItem } from '../../shared/types';
+
+const priced = (typeLine: string, frameType: number, stackSize: number, chaos: number, firstSeen = '2026-11-20T10:00:00Z'): PricedItem => ({
+  item: { id: `${typeLine}${Math.random()}`, name: '', typeLine, baseType: typeLine, icon: '', ilvl: 0, frameType, stackSize },
+  price: { itemId: '', source: 'ninja', chaos, low: null, high: null, confidence: 'high', sampleSize: 1, note: '' },
+  firstSeen,
+});
+
+describe('bulk selling', () => {
+  const items = [
+    priced('Divine Orb', 5, 3, 540), priced('Divine Orb', 5, 2, 360), priced('Chaos Orb', 5, 500, 500),
+    priced('Rusted Scarab', 0, 40, 80), priced('Orb of Alteration', 5, 10, 1.5), priced('Vaal Regalia', 2, 1, 50),
+  ];
+
+  it('groups stacks by name, applies the discount and skips small lots and chaos', () => {
+    const lots = bulkLots(items, { discountPct: 10, minLotChaos: 5, divine: 180 });
+    expect(lots.map((l) => l.name)).toEqual(['Divine Orb', 'Rusted Scarab']);
+    expect(lots[0]).toMatchObject({ count: 5, unit: 180, ask: 162, total: 810, note: '~price 162 chaos' });
+    expect(lots[1].message).toBe('WTS 40x Rusted Scarab 1.8c each (72c all)');
+  });
+
+  it('writes price notes and chat lines under the limit', () => {
+    expect(priceNote(360, 180)).toBe('~price 2 divine');
+    expect(priceNote(0.456, 180)).toBe('~price 0.46 chaos');
+    const many = Array.from({ length: 20 }, (_, i) => ({ name: `Item number ${i}`, count: 10, unit: 2, ask: 2, total: 20, note: '', message: '' }));
+    const lines = bulkMessages(many, 180);
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.every((l) => l.length <= 250)).toBe(true);
+  });
+});
+
+describe('farm profitability', () => {
+  it('counts loot that appeared during the run', () => {
+    const items = [priced('A', 5, 1, 10, '2026-11-20T09:00:00Z'), priced('B', 5, 1, 30, '2026-11-20T10:30:00Z'), priced('C', 5, 1, 20, '2026-11-20T11:30:00Z')];
+    expect(runLoot(items, '2026-11-20T10:00:00Z', '2026-11-20T11:00:00Z')).toEqual({ chaos: 30, count: 1 });
+    expect(runLoot(items, '2026-11-20T10:00:00Z', null).count).toBe(2);
+  });
+
+  it('compares strategies per map and per hour', () => {
+    const run = (strategy: string, hours: number, maps: number, loot: number, cost: number): FarmRun => ({
+      id: strategy + hours, strategy, startedAt: '2026-11-20T10:00:00Z', endedAt: new Date(Date.parse('2026-11-20T10:00:00Z') + hours * 3_600_000).toISOString(),
+      maps, costPerMap: cost, extraChaos: 0, lootChaos: loot, lootCount: 0, notes: '',
+    });
+    expect(runProfit(run('A', 1, 10, 500, 10))).toBe(400);
+    const s = summarizeStrategies([run('A', 1, 10, 500, 10), run('B', 1, 10, 900, 20), run('A', 1, 10, 300, 10)]);
+    expect(s[0]).toMatchObject({ strategy: 'B', perHour: 700, perMap: 70 });
+    expect(s[1]).toMatchObject({ strategy: 'A', runs: 2, maps: 20, profit: 600, perHour: 300 });
+  });
+});

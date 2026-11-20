@@ -130,6 +130,11 @@ const server = http.createServer(async (req, res) => {
       case 'POST /api/upgrade-watch/run': return json(res, 200, await service.runUpgradeWatch(true));
       case 'POST /api/backup/export': return json(res, 200, service.exportBackup(!!(await readBody(req)).withSecrets));
       case 'POST /api/backup/import': return json(res, 200, service.importBackup((await readBody(req)).backup));
+      case 'GET /api/farm': return json(res, 200, service.getFarm());
+      case 'POST /api/farm/start': { const b = await readBody(req); return json(res, 200, service.startFarm(b.strategy, b.costPerMap)); }
+      case 'POST /api/farm/finish': { const b = await readBody(req); return json(res, 200, service.finishFarm(b.maps, b.extraChaos, b.notes)); }
+      case 'POST /api/farm/cancel': return json(res, 200, service.cancelFarm());
+      case 'POST /api/farm/delete': return json(res, 200, service.deleteFarmRun(String((await readBody(req)).id ?? '')));
       case 'GET /api/flip': return json(res, 200, service.getFlips());
       case 'POST /api/flip/scan': return json(res, 200, await service.scanFlips());
       case 'POST /api/stop': service.stop(); return json(res, 200, { ok: true });

@@ -12,6 +12,7 @@ import { GroupsView } from './components/GroupsView';
 import { ChecksView } from './components/ChecksView';
 import { ChallengesView } from './components/ChallengesView';
 import { MarketView } from './components/MarketView';
+import { FarmView } from './components/FarmView';
 import type { PriceCheck } from '../shared/types';
 import { formatPrice } from './format';
 import { isBelowMin } from '../core/config';
@@ -33,10 +34,10 @@ export function App() {
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
   const [checks, setChecks] = useState<PriceCheck[]>([]);
-  const [view, setView] = useState<'list' | 'stash' | 'groups' | 'character' | 'check' | 'challenges' | 'market'>(() => {
+  const [view, setView] = useState<'list' | 'stash' | 'groups' | 'character' | 'check' | 'challenges' | 'market' | 'farm'>(() => {
     try {
       const v = localStorage.getItem('pricer-view');
-      return v === 'stash' || v === 'groups' || v === 'character' || v === 'check' || v === 'challenges' || v === 'market' ? v : 'list';
+      return v === 'stash' || v === 'groups' || v === 'character' || v === 'check' || v === 'challenges' || v === 'market' || v === 'farm' ? v : 'list';
     } catch { return 'list'; }
   });
   useEffect(() => {
@@ -220,6 +221,7 @@ export function App() {
           <button className={view === 'character' ? 'on' : ''} onClick={() => setView('character')}>Postać</button>
           <button className={view === 'challenges' ? 'on' : ''} onClick={() => setView('challenges')}>Challenge</button>
           <button className={view === 'market' ? 'on' : ''} onClick={() => setView('market')}>Handel</button>
+          <button className={view === 'farm' ? 'on' : ''} onClick={() => setView('farm')}>Farma</button>
           <button className={view === 'check' ? 'on' : ''} onClick={() => setView('check')}>Sprawdź (Ctrl+C){checks.length ? ` · ${checks.length}` : ''}</button>
         </div>
         <span className="spacer" />
@@ -249,7 +251,9 @@ export function App() {
 
       <main className="content">
         {view === 'market' ? (
-          <MarketView currency={currency} divine={divine} />
+          <MarketView currency={currency} divine={divine} items={items} />
+        ) : view === 'farm' ? (
+          <FarmView currency={currency} divine={divine} />
         ) : view === 'challenges' ? (
           <ChallengesView />
         ) : view === 'check' ? (

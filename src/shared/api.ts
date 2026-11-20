@@ -31,6 +31,11 @@ export interface PricerApi {
   exportBackup(withSecrets: boolean): Promise<unknown>;
   importBackup(backup: unknown): Promise<{ profiles: number; files: number }>;
   getFlips(): Promise<FlipState>;
+  getFarm(): Promise<import('./types').FarmState>;
+  startFarm(strategy: string, costPerMap: number): Promise<import('./types').FarmState>;
+  finishFarm(maps: number, extraChaos: number, notes: string): Promise<import('./types').FarmState>;
+  cancelFarm(): Promise<import('./types').FarmState>;
+  deleteFarmRun(id: string): Promise<import('./types').FarmState>;
   scanFlips(): Promise<FlipState>;
   runUpgradeWatch(): Promise<import('./types').UpgradeWatchState>;
   /** Prices an item from text copied in game with Ctrl+C. */

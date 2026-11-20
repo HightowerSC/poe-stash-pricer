@@ -304,3 +304,38 @@ export interface FlipRow {
   buyers: number;
   whisperBuy?: string;
 }
+
+/** One farming session with one strategy. */
+export interface FarmRun {
+  id: string;
+  strategy: string;
+  startedAt: string;
+  endedAt: string | null;
+  maps: number;
+  /** Map + scarabs + sextants etc. per map (chaos). */
+  costPerMap: number;
+  /** Loot not visible as new stash items (e.g. currency added to existing stacks), typed by the player. */
+  extraChaos: number;
+  lootChaos: number;
+  lootCount: number;
+  notes: string;
+}
+
+export interface FarmStrategySummary {
+  strategy: string;
+  runs: number;
+  maps: number;
+  profit: number;
+  perMap: number | null;
+  perHour: number | null;
+}
+
+export interface FarmState {
+  active: FarmRun | null;
+  /** Loot so far in the active run. */
+  live: { chaos: number; count: number } | null;
+  runs: FarmRun[];
+  strategies: FarmStrategySummary[];
+  /** Time of the last stash scan, so the player knows how fresh the numbers are. */
+  lastScan: string | null;
+}

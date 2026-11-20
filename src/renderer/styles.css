@@ -378,3 +378,9 @@ button.link { background: none; border: 0; padding: 0; color: var(--gold); curso
 .flip-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
 .flip-table th, .flip-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.06); }
 .flip-table tr.gain td:first-child { color: #8fd48f; }
+.flip-table tr.off td { opacity: .45; }
+.flip-table code { font-size: 12px; background: rgba(255,255,255,.06); padding: 1px 4px; border-radius: 4px; }
+.farm { display: flex; flex-direction: column; gap: 12px; }
+.farm .inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.farm-live { display: flex; flex-direction: column; gap: 8px; }
+.farm-loot { font-size: 15px; }

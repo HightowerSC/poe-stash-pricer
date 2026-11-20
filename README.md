@@ -96,6 +96,8 @@ Jeśli coś nie działa, pasek stanu pod kafelkami podaje przyczynę (np. nieakt
 - **Flip walut** (zakładka Handel) – cena, której chcą sprzedający, i cena, którą płacą kupujący, z wymiany hurtowej na trade, marża i zysk na wybraną liczbę sztuk.
 - **Kopiuj wiadomość** – przy ofertach (Najbliższe oferty, Szukaj ulepszenia, Flip) kopiuje gotowy whisper do sprzedawcy. Wklejasz go w grze sam – program niczego nie wysyła.
 - **Wykrywanie price-fixingu** – oferty dużo tańsze od reszty (przynęty) i wiele kopii od jednego sprzedawcy są oznaczane ⚠ i nie wpływają na cenę.
+- **Sprzedaż hurtowa** (Handel, 0.7.0) – waluta, fragmenty, scaraby, essence i karty ze skrzyni zsumowane po nazwie, z ceną hurtową (rabat do ustawienia), gotową notką `~price` na stos i wiadomościami WTS do skopiowania.
+- **Opłacalność farmy** (zakładka Farma, 0.7.0) – Start przed mapami, Zakończ z liczbą map: zysk na mapę i na godzinę oraz porównanie strategii.
 - **Kopia zapasowa ustawień** (⚙ Ustawienia) – zapis i wczytanie profili, challenge'y i pilnowania ulepszeń z pliku. POESESSID i webhook tylko na życzenie.
 
 ## Plany na przyszłość
