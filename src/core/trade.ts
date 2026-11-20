@@ -1,10 +1,12 @@
 // Client for the pathofexile.com trade site, used the same way as Awakened PoE Trade:
 //  - comparable listings of OTHER players for pricing (search + fetch),
 //  - the player's own stash, characters and gear from the profile endpoints (character-window).
-// Rate limits are dynamic, so we read X-Rate-Limit-* headers after every call and wait when needed.
+// Every request goes through the one shared gate in tradeLimiter.ts (limits from X-Rate-Limit-* headers,
+// Retry-After, priority queue, cache of identical queries), whichever TradeClient instance sends it.
 
 import type { ComparableListing, PoeItem, Realm } from '../shared/types';
-import { fetchTimed, sleep, type FetchLike, userAgent } from './http';
+import { fetchTimed, type FetchLike, userAgent } from './http';
+import { isInteractive, tradeGate, type TradeGate } from './tradeLimiter';
 
 const SITE = 'https://www.pathofexile.com';
 
@@ -12,11 +14,22 @@ export interface TradeSearchResult { id: string; result: string[]; total: number
 
 interface RuleState { max: number; period: number; hits: number }
 
+/** How long identical queries are answered from memory (listings don't change that fast). */
+const SEARCH_TTL = 5 * 60_000;
+const EXCHANGE_TTL = 2 * 60_000;
+const STATS_TTL = 6 * 60 * 60_000;
+/** A Ctrl+C check gives up instead of hanging when GGG imposed a long timeout. */
+const INTERACTIVE_MAX_WAIT = 60_000;
+
 export class TradeClient {
-  private blockedUntil = 0;
   private ua: string;
 
-  constructor(private readonly fetchFn: FetchLike = fetch, contact = '', private readonly sessionId?: string) {
+  constructor(
+    private readonly fetchFn: FetchLike = fetch,
+    contact = '',
+    private readonly sessionId?: string,
+    private readonly gate: TradeGate = tradeGate,
+  ) {
     this.ua = userAgent(contact);
   }
 
@@ -66,7 +79,11 @@ export class TradeClient {
     return json;
   }
 
-  async search(league: string, query: unknown, realm: Realm = 'pc'): Promise<TradeSearchResult> {
+  search(league: string, query: unknown, realm: Realm = 'pc'): Promise<TradeSearchResult> {
+    return this.gate.cached(`search|${realm}|${league}|${JSON.stringify(query)}`, SEARCH_TTL, () => this.searchNow(league, query, realm));
+  }
+
+  private async searchNow(league: string, query: unknown, realm: Realm): Promise<TradeSearchResult> {
     const realmPart = realm === 'pc' ? '' : `${realm}/`;
     const res = await this.call(`${SITE}/api/trade/search/${realmPart}${encodeURIComponent(league)}`, {
       method: 'POST',
@@ -80,7 +97,11 @@ export class TradeClient {
    * Bulk item exchange: offers of players who give `want` for `have` (cheapest first).
    * Each offer: the seller gives item.amount of `want` for exchange.amount of `have`.
    */
-  async exchange(league: string, want: string, have: string, realm: Realm = 'pc'): Promise<ExchangeOffer[]> {
+  exchange(league: string, want: string, have: string, realm: Realm = 'pc'): Promise<ExchangeOffer[]> {
+    return this.gate.cached(`exchange|${realm}|${league}|${want}|${have}`, EXCHANGE_TTL, () => this.exchangeNow(league, want, have, realm));
+  }
+
+  private async exchangeNow(league: string, want: string, have: string, realm: Realm): Promise<ExchangeOffer[]> {
     const realmPart = realm === 'pc' ? '' : `${realm}/`;
     const res = await this.call(`${SITE}/api/trade/exchange/${realmPart}${encodeURIComponent(league)}`, {
       method: 'POST',
@@ -95,15 +116,22 @@ export class TradeClient {
     const out: any[] = [];
     for (let i = 0; i < ids.length; i += 10) {
       const chunk = ids.slice(i, i + 10).join(',');
-      const res = await this.call(`${SITE}/api/trade/fetch/${chunk}?query=${queryId}`, { method: 'GET' });
-      const json = (await res.json()) as { result: any[] };
-      out.push(...(json.result ?? []).filter(Boolean));
+      const part = await this.gate.cached(`fetch|${queryId}|${chunk}`, SEARCH_TTL, async () => {
+        const res = await this.call(`${SITE}/api/trade/fetch/${chunk}?query=${queryId}`, { method: 'GET' });
+        const json = (await res.json()) as { result: any[] };
+        return (json.result ?? []).filter(Boolean);
+      });
+      out.push(...part);
     }
     return out;
   }
 
   /** All trade stat definitions, flattened (needed to turn mod text into stat ids). Cache this per session. */
-  async stats(): Promise<{ id: string; text: string; type: string; options?: { id: number; text: string }[] }[]> {
+  stats(): Promise<{ id: string; text: string; type: string; options?: { id: number; text: string }[] }[]> {
+    return this.gate.cached('stats', STATS_TTL, () => this.statsNow());
+  }
+
+  private async statsNow(): Promise<{ id: string; text: string; type: string; options?: { id: number; text: string }[] }[]> {
     const res = await this.call(`${SITE}/api/trade/data/stats`, { method: 'GET' });
     const json = (await res.json()) as { result: { entries: any[] }[] };
     return json.result.flatMap((g) =>
@@ -117,36 +145,17 @@ export class TradeClient {
   }
 
   private async call(url: string, init: RequestInit): Promise<Response> {
-    const wait = this.blockedUntil - Date.now();
-    if (wait > 0) await sleep(wait);
-
     const headers: Record<string, string> = { 'User-Agent': this.ua, Accept: 'application/json', ...(init.headers as any) };
     if (this.sessionId) headers.Cookie = `POESESSID=${this.sessionId}`;
-    const res = await fetchTimed(this.fetchFn, url, { ...init, headers });
-    this.updateLimits(res);
-
+    const res = await this.gate.request(url, () => fetchTimed(this.fetchFn, url, { ...init, headers }), {
+      maxWaitMs: isInteractive() ? INTERACTIVE_MAX_WAIT : undefined,
+    });
     if (res.status === 429) {
-      const retry = Number(res.headers.get('retry-after') ?? '60');
-      this.blockedUntil = Date.now() + retry * 1000;
-      throw new Error(`Limit zapytań trade – czekam ${retry} s`);
+      const retry = Number(res.headers.get('retry-after') ?? '60') || 60;
+      throw new Error(`Limit zapytań trade (pathofexile.com) – GGG każe czekać ${retry} s. Aplikacja sama zwolni tempo.`);
     }
     if (!res.ok) throw new Error(`Trade: HTTP ${res.status}`);
     return res;
-  }
-
-  /** If any rule is one hit away from its limit, pause for that rule's period. */
-  private updateLimits(res: Response) {
-    const rules = (res.headers.get('x-rate-limit-rules') ?? '').split(',').map((r) => r.trim()).filter(Boolean);
-    for (const rule of rules) {
-      const limits = parseRule(res.headers.get(`x-rate-limit-${rule}`));
-      const state = parseRule(res.headers.get(`x-rate-limit-${rule}-state`));
-      limits.forEach((lim, i) => {
-        const st = state[i];
-        if (st && st.max >= lim.max - 1) {
-          this.blockedUntil = Math.max(this.blockedUntil, Date.now() + lim.period * 1000);
-        }
-      });
-    }
   }
 }
 
