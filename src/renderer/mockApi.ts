@@ -1,8 +1,8 @@
-import type { FlipState, PricerApi, SessionState } from '../shared/api';
+import type { FlipState, LanInfo, PricerApi, SessionState } from '../shared/api';
 import { makeBackup, restoreBackup } from '../core/extras/backup';
 import { FLIP_CURRENCIES, flipRow, rankFlips } from '../core/market/flip';
 import { summarizeStrategies } from '../core/market/farm';
-import type { FarmRun, FarmState } from '../shared/types';
+import type { FarmRun, FarmState, ShoppingRow } from '../shared/types';
 import type { AppSettings, PricedItem } from '../shared/types';
 import { demoItems, demoValue } from '../core/demo';
 import { sessionSummary } from '../core/extras/history';
@@ -33,6 +33,7 @@ export function browserMockApi(): PricerApi {
     { id: 'r2', strategy: 'Strongbox', startedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(), endedAt: new Date(Date.now() - 2 * 3_600_000).toISOString(), maps: 12, costPerMap: 15, extraChaos: 0, lootChaos: 640, lootCount: 22, notes: '' },
   ] };
   const farmState = (): FarmState => ({ active: farm.active, live: farm.active ? { chaos: 310, count: 12 } : null, runs: farm.runs, strategies: summarizeStrategies(farm.runs), lastScan: new Date().toISOString() });
+  let lanInfo: LanInfo = { enabled: false, pin: '482913', port: 5318, running: false, urls: ['http://192.168.1.20:5318'], error: null };
   let flips: FlipState = { at: null, rows: [], running: false };
   let session: SessionState = { summary: sessionSummary([], new Date().toISOString()), value: [], divineRate: null };
   const itemListeners = new Set<(i: PricedItem[]) => void>();
@@ -91,6 +92,21 @@ export function browserMockApi(): PricerApi {
       return { profiles: settings.profiles.length, files: Object.keys(r.files).length };
     },
     async getFlips() { return flips; },
+    async getLan() { return lanInfo; },
+    async saveLan(cfg) {
+      if (cfg.pin !== undefined && !/^\d{4,8}$/.test(cfg.pin)) throw new Error('PIN musi mieć od 4 do 8 cyfr.');
+      lanInfo = { ...lanInfo, ...cfg, running: cfg.enabled ?? lanInfo.enabled };
+      return lanInfo;
+    },
+    async pobShopping() {
+      const rows = [
+        { kind: 'unique', slot: 'Body Armour', name: 'The Covenant', detail: 'Spidersilk Robe · gniazda B-B-B-B-B-B', chaos: 420, confidence: 'high', owned: false },
+        { kind: 'rare', slot: 'Helmet', name: 'Doom Crown', detail: 'Hubris Circlet', chaos: 85, confidence: 'medium', owned: false },
+        { kind: 'gem', slot: 'Gem', name: 'Empower Support', detail: '4/0', chaos: 310, confidence: 'high', owned: false },
+        { kind: 'gem', slot: 'Gem', name: 'Raise Spectre', detail: '20/20', chaos: 6, confidence: 'high', owned: true },
+      ] as ShoppingRow[];
+      return { className: 'Witch', ascendancy: 'Necromancer', level: 94, rows, total: 821, toBuy: 815, at: new Date().toISOString() };
+    },
     async getFarm() { return farmState(); },
     async startFarm(strategy, costPerMap) {
       if (farm.active) throw new Error('Sesja farmy już trwa – najpierw ją zakończ.');

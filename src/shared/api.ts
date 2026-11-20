@@ -9,6 +9,8 @@ export interface SessionState {
   divineRate: number | null;
 }
 
+export interface LanInfo { enabled: boolean; pin: string; port: number; running: boolean; urls: string[]; error: string | null }
+
 export interface FlipState { at: string | null; rows: import('./types').FlipRow[]; running: boolean }
 
 export interface PricerApi {
@@ -31,6 +33,9 @@ export interface PricerApi {
   exportBackup(withSecrets: boolean): Promise<unknown>;
   importBackup(backup: unknown): Promise<{ profiles: number; files: number }>;
   getFlips(): Promise<FlipState>;
+  getLan(): Promise<LanInfo>;
+  saveLan(cfg: { enabled?: boolean; pin?: string }): Promise<LanInfo>;
+  pobShopping(input: string): Promise<import('./types').ShoppingList>;
   getFarm(): Promise<import('./types').FarmState>;
   startFarm(strategy: string, costPerMap: number): Promise<import('./types').FarmState>;
   finishFarm(maps: number, extraChaos: number, notes: string): Promise<import('./types').FarmState>;
@@ -60,5 +65,5 @@ export interface PricerApi {
 }
 
 declare global {
-  interface Window { pricer: PricerApi }
+  interface Window { pricer: PricerApi; pricerReadOnly?: boolean }
 }

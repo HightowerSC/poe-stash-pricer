@@ -30,6 +30,8 @@ import { BACKUP_FILE, makeBackup, restoreBackup, type Backup } from './extras/ba
 import { FLIP_CURRENCIES, flipRow, rankFlips } from './market/flip';
 import type { FarmRun, FarmState, FlipRow } from '../shared/types';
 import { runLoot, summarizeStrategies } from './market/farm';
+import { decodePob, parsePobXml, pobRawUrl, type PobItem } from './hub/pob';
+import type { PoeItem, ShoppingList, ShoppingRow } from '../shared/types';
 import { buildCharacter, demoCharacter, demoCharacters, sortCharacters, toSummary } from './character';
 
 export type ServiceEvent =
@@ -515,6 +517,73 @@ export class PricerService {
     return { profiles: settings.profiles.length, files: Object.keys(files).length };
   }
 
+  // ---------- PoB shopping list ----------
+
+  /**
+   * Prices a Path of Building build: uniques and gems from poe.ninja, rares from trade comparables.
+   * input = export code, or a pobb.in / pastebin link (only that page is fetched).
+   */
+  async pobShopping(input: string): Promise<ShoppingList> {
+    let code = String(input ?? '').trim();
+    if (!code) throw new Error('Wklej kod z Path of Building albo link pobb.in.');
+    const raw = pobRawUrl(code);
+    if (raw) {
+      const res = await fetch(raw, { headers: { 'User-Agent': 'poe-stash-pricer' } });
+      if (!res.ok) throw new Error(`Nie udało się pobrać buildu z linku (HTTP ${res.status}).`);
+      code = (await res.text()).trim();
+    }
+    const build = parsePobXml(decodePob(code));
+    if (!build.items.length && !build.gems.length) throw new Error('W tym buildzie nie ma przedmiotów ani gemów.');
+    if (!this.demo && !this.engine) await this.start(false);
+    const engine = this.engine;
+
+    const own = this.lastCharacter;
+    const ownUniques = new Set([...(own?.items ?? []), ...(own?.jewels ?? [])].filter((e) => e.item.frameType === 3).map((e) => e.item.name.toLowerCase()));
+    const ownGems = new Set((own?.items ?? []).flatMap((e) => e.gems).map((g) => (g.typeLine || g.baseType).toLowerCase()));
+
+    const rows: ShoppingRow[] = [];
+    const all = [...build.items.map((it) => ({ it })), ...build.gems.map((g) => ({ g }))];
+    let i = 0;
+    for (const entry of all) {
+      i++;
+      if ('it' in entry) {
+        const it = entry.it;
+        const item = pobToItem(it, i);
+        const unique = item.frameType === 3;
+        const label = it.name || it.base;
+        this.status(`Lista zakupów ${i}/${all.length}: ${label}…`);
+        const row: ShoppingRow = {
+          kind: unique ? 'unique' : item.frameType === 1 || item.frameType === 2 ? 'rare' : 'other',
+          slot: it.slot, name: label, detail: [it.base !== label ? it.base : '', it.sockets ? `gniazda ${it.sockets}` : '', it.corrupted ? 'corrupted' : ''].filter(Boolean).join(' · '),
+          chaos: null, confidence: 'low', owned: unique && ownUniques.has(it.name.toLowerCase()),
+        };
+        if (this.demo || !engine) {
+          row.chaos = unique ? 40 + (i * 53) % 400 : 25 + (i * 31) % 120;
+          row.confidence = unique ? 'high' : 'medium';
+        } else if (row.kind !== 'other') {
+          try {
+            const p = unique ? await engine.price(item) : await engine.tradePrice(item);
+            row.chaos = p.chaos; row.confidence = p.confidence; row.tradeUrl = p.tradeUrl; row.note = p.note;
+          } catch (e) { row.note = msg(e); }
+        }
+        rows.push(row);
+      } else {
+        const g = entry.g;
+        const item: PoeItem = { id: `pob-g${i}`, name: '', typeLine: g.name, baseType: g.name, icon: '', ilvl: 0, frameType: 4,
+          properties: [{ name: 'Level', values: [[String(g.level), 0]] }, { name: 'Quality', values: [[`+${g.quality}%`, 0]] }] };
+        const row: ShoppingRow = { kind: 'gem', slot: 'Gem', name: g.name, detail: `${g.level}/${g.quality}`, chaos: null, confidence: 'low', owned: ownGems.has(g.name.toLowerCase()) };
+        if (this.demo || !engine) { row.chaos = /Awakened|Enlighten|Empower|Enhance/.test(g.name) ? 300 : 1 + (i % 7); row.confidence = 'high'; }
+        else { try { const p = await engine.price(item); row.chaos = p.chaos; row.confidence = p.confidence; row.note = p.note; } catch (e) { row.note = msg(e); } }
+        rows.push(row);
+      }
+    }
+    this.status('Lista zakupów gotowa.');
+    rows.sort((a, b) => Number(a.owned) - Number(b.owned) || (b.chaos ?? 0) - (a.chaos ?? 0));
+    const total = Math.round(rows.reduce((s, r) => s + (r.chaos ?? 0), 0));
+    const toBuy = Math.round(rows.filter((r) => !r.owned).reduce((s, r) => s + (r.chaos ?? 0), 0));
+    return { className: build.className, ascendancy: build.ascendancy, level: build.level, rows, total, toBuy, at: new Date().toISOString() };
+  }
+
   // ---------- farm profitability ----------
 
   getFarm(): FarmState {
@@ -731,6 +800,19 @@ export class PricerService {
       }
     }
   }
+}
+
+const FRAME: Record<string, number> = { NORMAL: 0, MAGIC: 1, RARE: 2, UNIQUE: 3, RELIC: 3 };
+
+/** A PoB item as a trade-like item, so the normal pricing engine can price it. */
+function pobToItem(it: PobItem, i: number): PoeItem {
+  const sockets: { group: number; sColour: string }[] = [];
+  it.sockets.split(' ').filter(Boolean).forEach((group, g) => group.split('-').forEach((c) => sockets.push({ group: g, sColour: c })));
+  return {
+    id: `pob-${i}`, name: it.name, typeLine: it.base, baseType: it.base, icon: '', ilvl: 84,
+    frameType: FRAME[it.rarity] ?? 2, implicitMods: it.implicits, explicitMods: it.mods,
+    sockets: sockets.length ? sockets : undefined, corrupted: it.corrupted || undefined,
+  };
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));

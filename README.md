@@ -98,6 +98,8 @@ Jeśli coś nie działa, pasek stanu pod kafelkami podaje przyczynę (np. nieakt
 - **Wykrywanie price-fixingu** – oferty dużo tańsze od reszty (przynęty) i wiele kopii od jednego sprzedawcy są oznaczane ⚠ i nie wpływają na cenę.
 - **Sprzedaż hurtowa** (Handel, 0.7.0) – waluta, fragmenty, scaraby, essence i karty ze skrzyni zsumowane po nazwie, z ceną hurtową (rabat do ustawienia), gotową notką `~price` na stos i wiadomościami WTS do skopiowania.
 - **Opłacalność farmy** (zakładka Farma, 0.7.0) – Start przed mapami, Zakończ z liczbą map: zysk na mapę i na godzinę oraz porównanie strategii.
+- **Lista zakupów pod build** (Handel, 0.8.0) – wklej kod z Path of Building albo link pobb.in (z poe.ninja: przycisk „Path of Building” na stronie postaci). Unikaty i gemy z cenami z poe.ninja, rare z podobnych ofert na trade; rzeczy, które ma już Twoja postać, są odliczane.
+- **Podgląd na telefonie** (⚙ Ustawienia, 0.8.0, domyślnie wyłączony) – lista cen, zakładki, farma i challenge na telefonie w tej samej sieci Wi-Fi. Tylko odczyt, PIN (blokada po 5 błędnych próbach), POESESSID i webhook nie trafiają na telefon. Używaj tylko w zaufanej sieci domowej (HTTP bez szyfrowania).
 - **Kopia zapasowa ustawień** (⚙ Ustawienia) – zapis i wczytanie profili, challenge'y i pilnowania ulepszeń z pliku. POESESSID i webhook tylko na życzenie.
 
 ## Plany na przyszłość

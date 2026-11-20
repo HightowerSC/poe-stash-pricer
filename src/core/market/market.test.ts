@@ -65,7 +65,7 @@ import type { FarmRun, PricedItem } from '../../shared/types';
 
 const priced = (typeLine: string, frameType: number, stackSize: number, chaos: number, firstSeen = '2026-11-20T10:00:00Z'): PricedItem => ({
   item: { id: `${typeLine}${Math.random()}`, name: '', typeLine, baseType: typeLine, icon: '', ilvl: 0, frameType, stackSize },
-  price: { itemId: '', source: 'ninja', chaos, low: null, high: null, confidence: 'high', sampleSize: 1, note: '' },
+  price: { itemId: '', source: 'poe.ninja', chaos, low: null, high: null, confidence: 'high', sampleSize: 1, note: '' },
   firstSeen,
 });
 

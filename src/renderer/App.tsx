@@ -168,6 +168,7 @@ export function App() {
 
   return (
     <div className="app">
+      {window.pricerReadOnly && <div className="readonly-banner">Podgląd z telefonu – tylko odczyt. Zmiany rób w aplikacji na komputerze.</div>}
       <header className="topbar">
         <div className="brand-row">
           <span className="brand">PoE Stash Pricer</span>

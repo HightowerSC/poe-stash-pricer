@@ -15,12 +15,24 @@ async function call<T>(method: 'GET' | 'POST', url: string, body?: unknown): Pro
 }
 
 export async function serverAvailable(): Promise<boolean> {
+  return (await serverState()) !== 'none';
+}
+
+/** 'ok' = full app, 'readonly' = phone preview, 'pin' = phone preview waiting for the PIN, 'none' = no server. */
+export async function serverState(): Promise<'ok' | 'readonly' | 'pin' | 'none'> {
   try {
     const res = await fetch('/api/health', { cache: 'no-store' });
-    return res.ok;
+    if (res.status === 401) return 'pin';
+    if (!res.ok) return 'none';
+    const body = await res.json().catch(() => ({}));
+    return body?.readonly ? 'readonly' : 'ok';
   } catch {
-    return false;
+    return 'none';
   }
+}
+
+export async function lanLogin(pin: string): Promise<void> {
+  await call('POST', '/api/lan/login', { pin });
 }
 
 export function httpApi(): PricerApi {
@@ -58,6 +70,9 @@ export function httpApi(): PricerApi {
     saveUpgradeWatch: (settings) => call('POST', '/api/upgrade-watch', { settings }),
     exportBackup: (withSecrets) => call('POST', '/api/backup/export', { withSecrets }),
     importBackup: (backup) => call('POST', '/api/backup/import', { backup }),
+    getLan: () => call('GET', '/api/lan'),
+    saveLan: (cfg) => call('POST', '/api/lan', cfg),
+    pobShopping: (input) => call('POST', '/api/pob', { input }),
     getFarm: () => call('GET', '/api/farm'),
     startFarm: (strategy, costPerMap) => call('POST', '/api/farm/start', { strategy, costPerMap }),
     finishFarm: (maps, extraChaos, notes) => call('POST', '/api/farm/finish', { maps, extraChaos, notes }),

@@ -339,3 +339,28 @@ export interface FarmState {
   /** Time of the last stash scan, so the player knows how fresh the numbers are. */
   lastScan: string | null;
 }
+
+/** One thing to buy for a Path of Building build. */
+export interface ShoppingRow {
+  kind: 'unique' | 'rare' | 'gem' | 'other';
+  slot: string;
+  name: string;
+  detail: string;
+  chaos: number | null;
+  confidence: Confidence;
+  /** The opened character already has it. */
+  owned: boolean;
+  tradeUrl?: string;
+  note?: string;
+}
+
+export interface ShoppingList {
+  className: string;
+  ascendancy: string;
+  level: number;
+  rows: ShoppingRow[];
+  total: number;
+  /** Total without what the character already owns. */
+  toBuy: number;
+  at: string;
+}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { League, Profile } from '../../shared/types';
 import { isDiscordWebhook, newProfile, validateProfile } from '../../core/config';
 import { PoesessidHelp, POESESSID_NOTE } from './PoesessidHelp';
+import type { LanInfo } from '../../shared/api';
 
 interface Props {
   initial?: Profile;
@@ -42,6 +43,19 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
     } catch (e) {
       setClearState(`Błąd: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+
+  const [lan, setLan] = useState<LanInfo | null>(null);
+  const [lanPin, setLanPin] = useState('');
+  const [lanMsg, setLanMsg] = useState('');
+  useEffect(() => {
+    if (!initial) return;
+    void window.pricer.getLan().then((l) => { setLan(l); setLanPin(l.pin); }).catch(() => undefined);
+  }, []);
+  async function saveLan(cfg: { enabled?: boolean; pin?: string }) {
+    setLanMsg('');
+    try { const l = await window.pricer.saveLan(cfg); setLan(l); setLanPin(l.pin); if (l.error) setLanMsg(l.error); }
+    catch (e) { setLanMsg(e instanceof Error ? e.message : String(e)); }
   }
 
   const [withSecrets, setWithSecrets] = useState(false);
@@ -184,6 +198,28 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
             <button type="button" className="btn ghost danger" onClick={() => void clearItems(true)}>Wyczyść przedmioty (wszystkie ligi)</button>
           </div>
           {clearState && <span className="hint">{clearState}</span>}
+        </fieldset>
+      )}
+      {initial && lan && !window.pricerReadOnly && (
+        <fieldset className="danger-zone">
+          <legend>Podgląd na telefonie</legend>
+          <span className="hint">Otwórz listę cen, zakładki i farmę na telefonie w tej samej sieci Wi-Fi (tylko podgląd). Zabezpieczone PIN-em; POESESSID nie trafia na telefon. Używaj tylko w zaufanej sieci domowej – połączenie nie jest szyfrowane.</span>
+          <label className="check wide">
+            <input type="checkbox" checked={lan.enabled} onChange={(e) => void saveLan({ enabled: e.target.checked })} />
+            Włącz podgląd na telefonie
+          </label>
+          <div className="inline">
+            <span className="hint">PIN:</span>
+            <input style={{ width: 120 }} inputMode="numeric" maxLength={8} value={lanPin} onChange={(e) => setLanPin(e.target.value.replace(/\D/g, ''))} />
+            <button type="button" className="btn ghost" disabled={lanPin === lan.pin} onClick={() => void saveLan({ pin: lanPin })}>Zmień PIN</button>
+          </div>
+          {lan.enabled && lan.running && (
+            <span className="hint">
+              Na telefonie wpisz w przeglądarce: {lan.urls.length ? lan.urls.map((u) => <b key={u} className="lan-url">{u}</b>) : <b>adres IP tego komputera:{lan.port}</b>}
+              {' '}i podaj PIN. Windows może zapytać o zgodę zapory – zezwól dla sieci prywatnej.
+            </span>
+          )}
+          {lanMsg && <span className="hint error-text">{lanMsg}</span>}
         </fieldset>
       )}
       {initial && (

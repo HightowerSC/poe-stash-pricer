@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FlipState } from '../../shared/api';
-import type { PricedItem } from '../../shared/types';
+import type { PricedItem, ShoppingList } from '../../shared/types';
 import { bulkLots, bulkMessages } from '../../core/market/bulk';
 import { formatPrice } from '../format';
 import { CopyWhisper } from './ItemDetails';
@@ -18,6 +18,7 @@ const num = (v: number | null) => (v == null ? '—' : v >= 10 ? `${v}c` : `${v.
 export function MarketView({ currency, divine, items }: Props & { items: PricedItem[] }) {
   return (
     <div className="market">
+      <ShoppingPanel currency={currency} divine={divine} />
       <BulkPanel currency={currency} divine={divine} items={items} />
       <FlipPanel currency={currency} divine={divine} />
     </div>
@@ -120,6 +121,57 @@ function BulkPanel({ currency, divine, items }: Props & { items: PricedItem[] })
                 <td><b>{formatPrice(l.total, currency, divine)}</b></td>
                 <td><code>{l.note}</code></td>
                 <td><CopyWhisper text={l.message} label="Kopiuj WTS" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+const KIND: Record<string, string> = { unique: 'Unikat', rare: 'Rare', gem: 'Gem', other: 'Inne' };
+
+/** Prices a Path of Building build: what to buy and how much it costs, minus what the character has. */
+function ShoppingPanel({ currency, divine }: Props) {
+  const [input, setInput] = useState('');
+  const [list, setList] = useState<ShoppingList | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const price = (c: number | null) => (c == null ? '—' : formatPrice(c, currency, divine));
+
+  async function go() {
+    setBusy(true);
+    setError('');
+    try { setList(await window.pricer.pobShopping(input)); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
+
+  return (
+    <section className="char-card">
+      <h3>Lista zakupów pod build {list && <span className="muted">– do kupienia {price(list.toBuy)}</span>}</h3>
+      <p className="muted small">
+        Wklej kod z Path of Building (Import/Export Build → Generate → Copy) albo link pobb.in. Z poe.ninja: na stronie postaci kliknij
+        „Path of Building” i skopiuj kod. Unikaty i gemy są wyceniane z poe.ninja, rare – z podobnych ofert na trade (to chwilę trwa).
+        Rzeczy, które ma już postać otwarta w zakładce Postać, są oznaczone jako posiadane.
+      </p>
+      <textarea className="pob-input" rows={3} value={input} onChange={(e) => setInput(e.target.value)} placeholder="eNrtfWuT2ziS4Of5FYz…  albo  https://pobb.in/…" />
+      <div className="inline">
+        <button className="btn primary" disabled={busy || !input.trim()} onClick={() => void go()}>{busy ? <><span className="spinner" /> Wyceniam build…</> : 'Wyceń build'}</button>
+        {list && <span className="muted small">{list.className}{list.ascendancy ? ` (${list.ascendancy})` : ''} · poziom {list.level} · razem {price(list.total)}</span>}
+      </div>
+      {error && <p className="error-text">{error}</p>}
+      {list && (
+        <table className="flip-table">
+          <thead><tr><th>Co</th><th>Slot</th><th>Przedmiot</th><th>Szczegóły</th><th>Cena</th><th /></tr></thead>
+          <tbody>
+            {list.rows.map((r, i) => (
+              <tr key={i} className={r.owned ? 'off' : ''} title={r.note}>
+                <td>{KIND[r.kind]}</td>
+                <td className="muted">{r.slot}</td>
+                <td>{r.name}{r.owned && <span className="muted small"> · masz już</span>}</td>
+                <td className="muted small">{r.detail}</td>
+                <td><b>{price(r.chaos)}</b>{r.chaos != null && r.confidence === 'low' && <span className="muted small"> ?</span>}</td>
+                <td>{r.tradeUrl && <a href={r.tradeUrl} target="_blank" rel="noopener">trade →</a>}</td>
               </tr>
             ))}
           </tbody>

@@ -1,6 +1,6 @@
 // Local web server: serves the UI and a small JSON API on http://localhost:5317.
 // The browser cannot call poe.ninja / pathofexile.com directly (CORS), so the server does it.
-// It listens on 127.0.0.1 only, so nothing is exposed to the network.
+// It listens on 127.0.0.1 only. The optional phone preview (lan.ts) is a separate, read-only, PIN-protected listener.
 
 import * as http from 'node:http';
 import * as fs from 'node:fs';
@@ -9,6 +9,7 @@ import * as os from 'node:os';
 import { exec } from 'node:child_process';
 import { PricerService, type ServiceEvent } from '../core/service';
 import { isDiscordWebhook } from '../core/config';
+import { LanPreview, publicSettings } from './lan';
 
 const PORT = Number(process.env.PORT ?? 5317);
 const HOST = '127.0.0.1';
@@ -78,11 +79,7 @@ function sameOrigin(req: http.IncomingMessage): boolean {
   return !origin || origin === `http://${host}`;
 }
 
-const server = http.createServer(async (req, res) => {
-  const url = (req.url ?? '/').split('?')[0];
-  if (!url.startsWith('/api/')) return serveStatic(req, res);
-  if (!sameOrigin(req)) return json(res, 403, { error: 'Niedozwolone źródło zapytania' });
-
+async function handleApi(req: http.IncomingMessage, res: http.ServerResponse, url: string): Promise<void> {
   try {
     const route = `${req.method} ${url}`;
     switch (route) {
@@ -130,6 +127,7 @@ const server = http.createServer(async (req, res) => {
       case 'POST /api/upgrade-watch/run': return json(res, 200, await service.runUpgradeWatch(true));
       case 'POST /api/backup/export': return json(res, 200, service.exportBackup(!!(await readBody(req)).withSecrets));
       case 'POST /api/backup/import': return json(res, 200, service.importBackup((await readBody(req)).backup));
+      case 'POST /api/pob': return json(res, 200, await service.pobShopping(String((await readBody(req)).input ?? '')));
       case 'GET /api/farm': return json(res, 200, service.getFarm());
       case 'POST /api/farm/start': { const b = await readBody(req); return json(res, 200, service.startFarm(b.strategy, b.costPerMap)); }
       case 'POST /api/farm/finish': { const b = await readBody(req); return json(res, 200, service.finishFarm(b.maps, b.extraChaos, b.notes)); }
@@ -149,7 +147,8 @@ const server = http.createServer(async (req, res) => {
           'Content-Type': 'text/csv; charset=utf-8',
           'Content-Disposition': `attachment; filename="${service.exportFileName()}"`,
         });
-        return res.end(service.exportCsv());
+        res.end(service.exportCsv());
+        return;
       case 'GET /api/events':
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
         res.write(': ok\n\n');
@@ -164,7 +163,27 @@ const server = http.createServer(async (req, res) => {
     console.log(`[${new Date().toLocaleTimeString()}] BŁĄD ${req.method} ${url}: ${message}`);
     return json(res, 500, { error: message });
   }
+}
+
+const server = http.createServer(async (req, res) => {
+  const url = (req.url ?? '/').split('?')[0];
+  if (!url.startsWith('/api/')) return serveStatic(req, res);
+  if (!sameOrigin(req)) return json(res, 403, { error: 'Niedozwolone źródło zapytania' });
+  if (url === '/api/lan' && req.method === 'GET') return json(res, 200, lan.status());
+  if (url === '/api/lan' && req.method === 'POST') {
+    try { return json(res, 200, await lan.configure(await readBody(req))); } catch (e) { return json(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+  }
+  return handleApi(req, res, url);
 });
+
+// Phone preview on the local network (off by default, PIN, read-only).
+const lan = new LanPreview(DATA_DIR, Number(process.env.LAN_PORT ?? 5318), {
+  serveStatic,
+  json,
+  readBody,
+  api: (req, res, url) => (url === '/api/settings' && req.method === 'GET' ? json(res, 200, publicSettings(service.getSettings())) : handleApi(req, res, url)),
+});
+lan.start();
 
 // Keep event streams alive through proxies/antivirus.
 setInterval(() => clients.forEach((c) => c.write(': ping\n\n')), 25_000).unref();

@@ -143,3 +143,79 @@ describe('essence crafting', () => {
     expect(withCraft(base, '+80 to maximum Life').frameType).toBe(2);
   });
 });
+
+import { deflateSync } from 'node:zlib';
+import { decodePob, parsePobXml, pobRawUrl } from './pob';
+
+describe('Path of Building import', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+  <Build level="94" className="Witch" ascendClassName="Necromancer" mainSocketGroup="1"/>
+  <Skills activeSkillSet="1"><SkillSet id="1">
+    <Skill enabled="true" slot="Body Armour">
+      <Gem nameSpec="Raise Spectre" skillId="RaiseSpectre" level="21" quality="20" enabled="true"/>
+      <Gem nameSpec="Spell Echo" skillId="SupportMulticast" level="20" quality="0" enabled="true"/>
+      <Gem nameSpec="Empower" skillId="SupportAdditionalLevel" level="4" quality="0" enabled="true"/>
+      <Gem nameSpec="Disabled Gem" skillId="X" level="1" quality="0" enabled="false"/>
+    </Skill>
+  </SkillSet></Skills>
+  <Tree activeSpec="1"><Spec treeVersion="3_25"><Sockets><Socket nodeId="1" itemId="3"/><Socket nodeId="2" itemId="0"/></Sockets></Spec></Tree>
+  <Items activeItemSet="1">
+    <Item id="1">
+Rarity: UNIQUE
+The Covenant
+Spidersilk Robe
+Unique ID: abc
+Item Level: 85
+Sockets: B-B-B-B-B-B
+LevelReq: 69
+Implicits: 0
+Socketed Gems are Supported by Level 22 Added Chaos Damage
+{range:0.5}+(100-120) to maximum Energy Shield
+Corrupted
+    </Item>
+    <Item id="2">
+Rarity: RARE
+Doom Crown
+Hubris Circlet
+Item Level: 86
+Sockets: B-B G B
+Implicits: 1
+{tags:mana}+23 to maximum Mana
+{crafted}+30% to Fire Resistance
++90 to maximum Life
++42% to Cold Resistance
+    </Item>
+    <Item id="3">
+Rarity: RARE
+Gloom Eye
+Cobalt Jewel
+Implicits: 0
+7% increased maximum Life
+    </Item>
+    <ItemSet id="1" useSecondWeaponSet="false">
+      <Slot name="Body Armour" itemId="1"/>
+      <Slot name="Helmet" itemId="2"/>
+      <Slot name="Gloves" itemId="0"/>
+    </ItemSet>
+  </Items>
+</PathOfBuilding>`;
+  const code = deflateSync(Buffer.from(xml)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
+
+  it('decodes the export code and reads the build', () => {
+    const b = parsePobXml(decodePob(code));
+    expect(b).toMatchObject({ className: 'Witch', ascendancy: 'Necromancer', level: 94 });
+    expect(b.items.map((i) => i.slot)).toEqual(['Body Armour', 'Helmet', 'Jewel']);
+    expect(b.items[0]).toMatchObject({ rarity: 'UNIQUE', name: 'The Covenant', base: 'Spidersilk Robe', sockets: 'B-B-B-B-B-B', corrupted: true });
+    expect(b.items[1].implicits).toEqual(['+23 to maximum Mana']);
+    expect(b.items[1].mods).toEqual(['+30% to Fire Resistance', '+90 to maximum Life', '+42% to Cold Resistance']);
+    expect(b.gems.map((g) => g.name)).toEqual(['Raise Spectre', 'Spell Echo Support', 'Empower Support']);
+  });
+
+  it('recognises links and rejects garbage', () => {
+    expect(pobRawUrl('https://pobb.in/AbC-12')).toBe('https://pobb.in/AbC-12/raw');
+    expect(pobRawUrl('https://pastebin.com/xyz123')).toBe('https://pastebin.com/raw/xyz123');
+    expect(pobRawUrl(code)).toBeNull();
+    expect(() => decodePob('not a code!')).toThrow(/Path of Building/);
+  });
+});
