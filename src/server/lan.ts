@@ -24,7 +24,7 @@ export interface LanStatus extends LanConfig {
 /** GET routes the phone may read. Everything else (all POSTs) is refused. */
 export const LAN_READ_ROUTES = new Set([
   '/api/health', '/api/settings', '/api/items', '/api/session', '/api/checks', '/api/challenges',
-  '/api/farm', '/api/flip', '/api/upgrade-watch', '/api/leagues', '/api/events', '/api/export.csv',
+  '/api/farm', '/api/flip', '/api/upgrade-watch', '/api/leagues', '/api/events', '/api/export.csv', '/api/icon',
 ]);
 
 export const PIN_RE = /^\d{4,8}$/;

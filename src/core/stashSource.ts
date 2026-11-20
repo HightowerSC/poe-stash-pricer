@@ -16,6 +16,8 @@ export interface ScanResult {
   total: number;
   /** Names of the tabs seen in this scan. */
   tabs: string[];
+  /** Current position of every item (items move between scans; the picture of the tab must follow). */
+  locations?: Map<string, ItemLocation>;
   /** Loads the given ids (only the ones not priced yet). */
   load(ids: string[]): Promise<{ item: PoeItem; location?: ItemLocation }[]>;
 }
@@ -53,9 +55,13 @@ export class SessionTabsSource implements StashSource {
         if (!item.id) continue;
         const x = Number(raw.x);
         const y = Number(raw.y);
+        const colour = hexColour(t.colour);
+        const tabInfo = { ...(t.type ? { tabType: t.type } : {}), tabIndex: t.i, ...(colour ? { tabColor: colour } : {}) };
         byId.set(item.id, {
           item,
-          location: Number.isFinite(x) && Number.isFinite(y) ? { tab: t.n, x, y, w: item.w ?? 1, h: item.h ?? 1 } : { tab: t.n, x: 0, y: 0, w: 1, h: 1 },
+          location: Number.isFinite(x) && Number.isFinite(y)
+            ? { tab: t.n, x, y, w: item.w ?? 1, h: item.h ?? 1, ...tabInfo }
+            : { tab: t.n, x: 0, y: 0, w: 1, h: 1, ...tabInfo },
         });
       }
     }
@@ -64,7 +70,14 @@ export class SessionTabsSource implements StashSource {
       complete: true,
       total: byId.size,
       tabs: tabs.map((t) => t.n),
+      locations: new Map([...byId].flatMap(([id, v]) => (v.location ? [[id, v.location] as const] : []))),
       load: async (ids) => ids.map((id) => byId.get(id)!).filter(Boolean),
     };
   }
+}
+
+/** GGG tab colour { r, g, b } → "#rrggbb". */
+export function hexColour(c: { r: number; g: number; b: number } | undefined): string | undefined {
+  if (!c || ![c.r, c.g, c.b].every((v) => Number.isFinite(v))) return undefined;
+  return '#' + [c.r, c.g, c.b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
 }

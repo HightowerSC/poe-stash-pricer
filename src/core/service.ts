@@ -3,7 +3,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { AppSettings, League, PricedItem, Profile, SessionSummary } from '../shared/types';
+import type { AppSettings, ItemLocation, League, PricedItem, Profile, SessionSummary } from '../shared/types';
 import type { SessionState } from '../shared/api';
 import { emptySettings, resolveLeague, upgradeProfile } from './config';
 import { NinjaClient } from './ninja';
@@ -278,16 +278,19 @@ export class PricerService {
         self.pushState();
         self.notify(enriched, profile);
       },
-      onPresent: (ids, complete) => {
+      onPresent: (ids, complete, locations) => {
         self.lastScan = new Date().toISOString();
         if (!complete) return;
         const present = new Set(ids);
         let changed = false;
         self.items = self.items.map((p) => {
           const now = present.has(p.item.id);
-          if (p.present === now) return p;
+          // Items moved in the stash since the last check: keep the picture of the tab current.
+          const loc = locations?.get(p.item.id);
+          const moved = !!loc && !sameLocation(loc, p.location);
+          if (p.present === now && !moved) return p;
           changed = true;
-          return { ...p, present: now };
+          return { ...p, present: now, ...(moved ? { location: loc } : {}) };
         });
         if (changed) {
           self.writeJson(`items-${safe(self.league)}.json`, { seen: self.watcher?.seenIds ?? [], items: self.items });
@@ -822,3 +825,8 @@ function pobToItem(it: PobItem, i: number): PoeItem {
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+function sameLocation(a: ItemLocation, b: ItemLocation | undefined): boolean {
+  return !!b && a.tab === b.tab && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h
+    && a.tabType === b.tabType && a.tabIndex === b.tabIndex && a.tabColor === b.tabColor;
+}

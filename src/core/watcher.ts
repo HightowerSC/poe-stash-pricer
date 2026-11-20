@@ -10,7 +10,7 @@ export interface WatcherEvents {
   onStatus(text: string): void;
   onError(text: string): void;
   /** Ids currently in the scanned tabs; complete=false when the list was cut off (trade search: 100 max). */
-  onPresent?(ids: string[], complete: boolean): void;
+  onPresent?(ids: string[], complete: boolean, locations?: Map<string, import('../shared/types').ItemLocation>): void;
   /** Called when nothing is visible, to find out why (e.g. items are in another league). */
   onEmpty?(): Promise<string | null>;
 }
@@ -54,7 +54,7 @@ export class StashWatcher {
       this.events.onStatus(`Sprawdzam ${this.source.label}…`);
       await this.engine.refreshPrices();
       const scan = await this.source.scan();
-      this.events.onPresent?.(scan.ids, scan.complete);
+      this.events.onPresent?.(scan.ids, scan.complete, scan.locations);
       const unseen = scan.ids.filter((id) => !this.seen.has(id) && !this.skippedThisRun.has(id));
       const batch = unseen.slice(0, BATCH);
       const loaded = await scan.load(batch);
