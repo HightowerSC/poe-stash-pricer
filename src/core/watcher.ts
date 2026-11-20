@@ -10,10 +10,12 @@ export interface WatcherEvents {
   onError(text: string): void;
 }
 
+/** How many new items to fetch and price per check. */
+const BATCH = 20;
+
 export class StashWatcher {
   private seen = new Set<string>();
   private timer: ReturnType<typeof setTimeout> | null = null;
-  private firstRun = true;
 
   constructor(
     private readonly profile: Profile,
@@ -24,7 +26,6 @@ export class StashWatcher {
     seenIds: string[] = [],
   ) {
     seenIds.forEach((id) => this.seen.add(id));
-    this.firstRun = seenIds.length === 0;
   }
 
   start() {
@@ -45,23 +46,48 @@ export class StashWatcher {
       this.events.onStatus('Sprawdzam publiczne zakładki…');
       await this.engine.refreshPrices();
       const search = await this.trade.searchAccountItems(this.league, this.profile.accountName, this.profile.realm);
-      const fresh = search.result.filter((id) => !this.seen.has(id)).slice(0, 40);
-      const listings = fresh.length ? await this.trade.fetch(fresh, search.id) : [];
+      const unseen = search.result.filter((id) => !this.seen.has(id));
+      // Price in batches so one check never floods the trade site; the rest waits for the next check.
+      const batch = unseen.slice(0, BATCH);
+      const listings = batch.length ? await this.trade.fetch(batch, search.id) : [];
       const priced: PricedItem[] = [];
-      for (const l of listings) {
+      const tabs = new Set<string>();
+      let otherTab = 0;
+      for (let i = 0; i < listings.length; i++) {
+        const l = listings[i];
         this.seen.add(l.id);
-        if (this.profile.watchedTab && l.listing?.stash?.name !== this.profile.watchedTab) continue;
-        // On the very first run we only remember what is already there, so old items are not reported as new.
-        if (this.firstRun) continue;
+        const tab = l.listing?.stash?.name ?? '';
+        tabs.add(tab);
+        if (this.profile.watchedTab && tab.toLowerCase() !== this.profile.watchedTab.toLowerCase()) {
+          otherTab++;
+          continue;
+        }
+        this.events.onStatus(`Wyceniam ${i + 1}/${listings.length}: ${l.item?.name || l.item?.typeLine || 'przedmiot'}…`);
         priced.push({ item: l.item, price: await this.engine.price(l.item), firstSeen: new Date().toISOString() });
+        if (priced.length % 5 === 0) {
+          this.events.onItems(priced.splice(0));
+        }
       }
-      this.firstRun = false;
       if (priced.length) this.events.onItems(priced);
-      this.events.onStatus(`Ostatnie sprawdzenie: ${new Date().toLocaleTimeString()} · nowych: ${priced.length}`);
+      this.events.onStatus(this.describe(search.total, unseen.length - batch.length, otherTab, tabs));
     } catch (e) {
       this.events.onError(e instanceof Error ? e.message : String(e));
     } finally {
       this.timer = setTimeout(() => void this.tick(), this.profile.pollSeconds * 1000);
     }
+  }
+
+  private describe(total: number, waiting: number, otherTab: number, tabs: Set<string>): string {
+    const time = new Date().toLocaleTimeString();
+    if (total === 0) {
+      return `${time} · Nie znaleziono żadnych przedmiotów konta ${this.profile.accountName} w lidze ${this.league}. `
+        + 'Ustaw w grze zakładkę jako „Public” (bez ceny) – przedmioty pojawiają się na trade po ok. 5 minutach.';
+    }
+    const parts = [`${time} · Na trade widać ${total} Twoich przedmiotów`];
+    if (waiting > 0) parts.push(`do wyceny w kolejnych sprawdzeniach: ${waiting}`);
+    if (otherTab > 0) {
+      parts.push(`pominięto ${otherTab} z innych zakładek (obserwowana: „${this.profile.watchedTab}”, znalezione: ${[...tabs].map((t) => `„${t}”`).join(', ')})`);
+    }
+    return parts.join(' · ');
   }
 }

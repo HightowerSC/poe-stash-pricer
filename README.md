@@ -22,7 +22,7 @@ Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym
 
 Aplikacja działa w przeglądarce. Mały lokalny serwer (Node.js) pobiera ceny z poe.ninja i trade, a interfejs otwiera się pod adresem **http://localhost:5317**. Serwer nasłuchuje tylko na Twoim komputerze.
 
-Wymagane: [Node.js LTS](https://nodejs.org/) (20 lub nowszy) i [Git](https://git-scm.com/).
+Wymagane: [Node.js LTS](https://nodejs.org/) (22 lub nowszy) i [Git](https://git-scm.com/).
 
 Ten sam kod i te same komendy na każdym systemie. Wklej w terminal (Windows: PowerShell, Linux/macOS: terminal):
 

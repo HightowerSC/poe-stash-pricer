@@ -114,7 +114,26 @@ export class PricerService {
     this.watcher = null;
   }
 
+  private starting = false;
+
+  private status(text: string, error = false) {
+    this.emit({ type: 'status', payload: { text, error } });
+  }
+
   async start(demo: boolean): Promise<{ league: string; divineRate: number | null }> {
+    if (this.starting) throw new Error('Aplikacja już się uruchamia – poczekaj chwilę.');
+    this.starting = true;
+    try {
+      return await this.startInner(demo);
+    } catch (e) {
+      this.status(`Nie udało się uruchomić: ${msg(e)}`, true);
+      throw e;
+    } finally {
+      this.starting = false;
+    }
+  }
+
+  private async startInner(demo: boolean): Promise<{ league: string; divineRate: number | null }> {
     this.stop();
     const settings = this.getSettings();
     const profile = settings.profiles.find((p) => p.id === settings.activeProfileId);
@@ -133,17 +152,30 @@ export class PricerService {
       return { league: this.league, divineRate: this.divineRate };
     }
 
-    const leagues = await this.ninja.leagues().catch(() => [] as League[]);
+    this.status('Krok 1/4: pobieram listę lig z poe.ninja…');
+    let leagues: League[] = [];
+    try {
+      leagues = await this.ninja.leagues();
+    } catch (e) {
+      this.status(`Nie udało się pobrać listy lig (${msg(e)}) – używam ustawienia z profilu.`, true);
+    }
     this.league = resolveLeague(profile.league, profile.hardcore, leagues);
     const trade = new TradeClient(fetch, profile.accountName);
     const engine = new PricingEngine(profile, this.league, this.ninja, trade);
-    await engine.refreshPrices();
+
+    this.status(`Krok 2/4: pobieram ceny z poe.ninja dla ligi ${this.league}…`);
+    const count = await engine.refreshPrices(false, (done, total, failed) => {
+      this.status(`Krok 2/4: ceny z poe.ninja – ${done}/${total} kategorii${failed ? ` (${failed} niedostępnych)` : ''}`);
+    });
     this.divineRate = engine.divineRate;
+
+    this.status('Krok 3/4: pobieram listę modów z trade (pathofexile.com)…');
     try {
       engine.setTradeStats(await trade.stats());
     } catch (e) {
-      this.emit({ type: 'status', payload: { text: `Nie udało się pobrać statystyk trade: ${msg(e)}`, error: true } });
+      this.status(`Nie udało się pobrać modów z trade: ${msg(e)}. Rare będą wyceniane dopiero po ponownym starcie.`, true);
     }
+    this.status(`Krok 4/4: sprawdzam publiczne zakładki konta ${profile.accountName}… (wczytano ${count} cen)`);
 
     const store = this.readJson<{ seen: string[]; items: PricedItem[] }>(`items-${safe(this.league)}.json`, { seen: [], items: [] });
     this.items = store.items;

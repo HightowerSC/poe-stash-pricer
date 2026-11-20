@@ -19,6 +19,8 @@ const service = new PricerService(DATA_DIR);
 const clients = new Set<http.ServerResponse>();
 
 service.on((e: ServiceEvent) => {
+  if (e.type === 'status') console.log(`[${new Date().toLocaleTimeString()}] ${e.payload.error ? 'BŁĄD: ' : ''}${e.payload.text}`);
+  if (e.type === 'notify') console.log(`[${new Date().toLocaleTimeString()}] Nowy przedmiot: ${e.payload.title} – ${e.payload.body}`);
   const data = `event: ${e.type}\ndata: ${JSON.stringify(e.payload)}\n\n`;
   for (const c of clients) c.write(data);
 });
@@ -118,7 +120,9 @@ const server = http.createServer(async (req, res) => {
         return json(res, 404, { error: 'Nie ma takiego adresu' });
     }
   } catch (e) {
-    return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    const message = e instanceof Error ? e.message : String(e);
+    console.log(`[${new Date().toLocaleTimeString()}] BŁĄD ${req.method} ${url}: ${message}`);
+    return json(res, 500, { error: message });
   }
 });
 

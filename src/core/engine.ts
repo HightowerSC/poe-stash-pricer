@@ -37,8 +37,8 @@ export class PricingEngine {
     private readonly poepricesFetch: FetchLike = fetch,
   ) {}
 
-  async refreshPrices(force = false) {
-    const rows = await this.ninja.allPrices(this.league, force);
+  async refreshPrices(force = false, onProgress?: (done: number, total: number, failed: number) => void) {
+    const rows = await this.ninja.allPrices(this.league, force, onProgress);
     this.index = new NinjaIndex(rows);
     for (const [code, name] of Object.entries(CURRENCY_NAMES)) {
       const row = rows.find((r) => r.name === name);

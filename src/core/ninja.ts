@@ -54,7 +54,7 @@ export class NinjaClient {
 
   async leagues(): Promise<League[]> {
     const res = await this.get(`${BASE}/leagues`);
-    if (!res.ok) throw new Error(`poe.ninja leagues: HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`poe.ninja (lista lig): HTTP ${res.status}`);
     const data = (await res.json()) as any[];
     // The first entry is the current challenge league; its Hardcore twin follows the same naming.
     const challenge = data[0]?.id ?? data[0]?.name;
@@ -67,13 +67,27 @@ export class NinjaClient {
   }
 
   /** All price rows for one league. Unknown categories (new leagues) are skipped, not fatal. */
-  async allPrices(league: string, force = false): Promise<NinjaRow[]> {
+  async allPrices(league: string, force = false, onProgress?: (done: number, total: number, failed: number) => void): Promise<NinjaRow[]> {
     const urls = [
       ...EXCHANGE_TYPES.map((t) => [t, `${BASE}/exchange/current/overview?league=${encodeURIComponent(league)}&type=${t}`]),
       ...ITEM_TYPES.map((t) => [t, `${BASE}/stash/current/item/overview?league=${encodeURIComponent(league)}&type=${t}`]),
     ];
-    const results = await Promise.all(urls.map(([type, url]) => this.table(type, url, force).catch(() => [])));
-    return results.flat();
+    let done = 0;
+    let failed = 0;
+    let lastError = '';
+    const results = await Promise.all(urls.map(([type, url]) =>
+      this.table(type, url, force)
+        .catch((e) => {
+          failed++;
+          lastError = e instanceof Error ? e.message : String(e);
+          return [] as NinjaRow[];
+        })
+        .finally(() => onProgress?.(++done, urls.length, failed)),
+    ));
+    const rows = results.flat();
+    // Every table failed: that is a connection problem, not a missing category.
+    if (rows.length === 0 && failed === urls.length) throw new Error(`poe.ninja nie odpowiada: ${lastError}`);
+    return rows;
   }
 
   private async table(category: string, url: string, force: boolean): Promise<NinjaRow[]> {

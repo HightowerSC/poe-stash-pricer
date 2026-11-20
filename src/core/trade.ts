@@ -4,7 +4,7 @@
 // Rate limits are dynamic, so we read X-Rate-Limit-* headers after every call and wait when needed.
 
 import type { ComparableListing, PoeItem, Realm } from '../shared/types';
-import { sleep, type FetchLike, userAgent } from './http';
+import { fetchTimed, sleep, type FetchLike, userAgent } from './http';
 
 const SITE = 'https://www.pathofexile.com';
 
@@ -74,7 +74,7 @@ export class TradeClient {
 
     const headers: Record<string, string> = { 'User-Agent': this.ua, Accept: 'application/json', ...(init.headers as any) };
     if (this.sessionId) headers.Cookie = `POESESSID=${this.sessionId}`;
-    const res = await this.fetchFn(url, { ...init, headers });
+    const res = await fetchTimed(this.fetchFn, url, { ...init, headers });
     this.updateLimits(res);
 
     if (res.status === 429) {

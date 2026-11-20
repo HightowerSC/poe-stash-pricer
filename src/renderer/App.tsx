@@ -22,6 +22,7 @@ export function App() {
   const [filter, setFilter] = useState('');
   const [session, setSession] = useState<SessionState | null>(null);
   const [toast, setToast] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     void window.pricer.getSettings().then(setSettings);
@@ -52,12 +53,23 @@ export function App() {
   async function saveProfile(p: Profile) {
     const others = settings?.profiles.filter((x) => x.id !== p.id) ?? [];
     const next: AppSettings = { activeProfileId: p.id, profiles: [...others, p] };
-    await window.pricer.saveSettings(next);
-    setSettings(next);
+    try {
+      await window.pricer.saveSettings(next);
+      setSettings(next);
+      setEditing(false);
+    } catch (e) {
+      alertError(`Nie udało się zapisać ustawień: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
+  function alertError(text: string) {
+    setStatus({ text, error: true });
     setEditing(false);
   }
 
   async function start(demo: boolean) {
+    setBusy(true);
+    setStatus({ text: demo ? 'Wczytuję przykładowe przedmioty…' : 'Uruchamiam – łączę się z poe.ninja i trade…' });
     try {
       const r = await window.pricer.start(demo);
       setLeague(r.league);
@@ -65,6 +77,8 @@ export function App() {
       setRunning(true);
     } catch (e) {
       setStatus({ text: e instanceof Error ? e.message : String(e), error: true });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -111,8 +125,8 @@ export function App() {
             <button className="btn" onClick={stop}>Zatrzymaj</button>
           ) : (
             <>
-              <button className="btn primary" onClick={() => start(false)}>Start</button>
-              <button className="btn ghost" onClick={() => start(true)}>Demo</button>
+              <button className="btn primary" onClick={() => start(false)} disabled={busy}>{busy ? <><span className="spinner" /> Uruchamiam…</> : 'Start'}</button>
+              <button className="btn ghost" onClick={() => start(true)} disabled={busy}>Demo</button>
             </>
           )}
           <button className="btn ghost" onClick={exportCsv} disabled={items.length === 0}>⭳ CSV</button>
@@ -156,8 +170,24 @@ export function App() {
       <main className="content">
         {visible.length === 0 ? (
           <div className="empty">
-            <p>Brak przedmiotów.</p>
-            <p className="muted">Kliknij <b>Start</b>, aby obserwować publiczną zakładkę, albo <b>Demo</b>, aby zobaczyć przykład.</p>
+            {busy || running ? (
+              <>
+                <p>{busy ? <><span className="spinner" /> Uruchamiam…</> : 'Na razie brak wycenionych przedmiotów.'}</p>
+                <p className={status.error ? 'error-text' : 'muted'}>{status.text}</p>
+                {!busy && (
+                  <p className="muted small">
+                    Program widzi tylko przedmioty z zakładek ustawionych w grze jako <b>Public</b> (prawy klik na zakładkę → Edit → Public, bez ceny).<br />
+                    Trade pokazuje je z opóźnieniem ok. 5 minut.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p>Brak przedmiotów.</p>
+                <p className="muted">Kliknij <b>Start</b>, aby obserwować publiczną zakładkę, albo <b>Demo</b>, aby zobaczyć przykład.</p>
+                {status.error && <p className="error-text">{status.text}</p>}
+              </>
+            )}
           </div>
         ) : (
           <div className="grid">
