@@ -7,7 +7,8 @@ import { discordPayload } from './discord';
 import { itemToText } from './poeprices';
 import { toCsv } from './csv';
 import { isDiscordWebhook, upgradeProfile } from '../config';
-import type { PoeItem, PriceEstimate, PricedItem } from '../../shared/types';
+import type { PoeItem, PriceEstimate, PricedItem, Profile } from '../../shared/types';
+import { FALLBACK_DIVINE_CHAOS, notifyThresholdChaos, shouldNotifyItem, shouldNotifyUpgrade } from './notifyPolicy';
 
 const base: PoeItem = { id: 'x', name: '', typeLine: 'Iron Gauntlets', baseType: 'Iron Gauntlets', icon: '', ilvl: 70, frameType: 2 };
 const est = (chaos: number | null): PriceEstimate => ({ itemId: 'x', source: chaos ? 'trade' : 'none', chaos, low: chaos, high: chaos, confidence: 'medium', sampleSize: 5, note: 'n' });
@@ -115,5 +116,41 @@ describe('discord, poeprices, csv, settings', () => {
     expect(p.discordWebhook).toBe('');
     expect(p.usePoeprices).toBe(false);
     expect(p.accountName).toBe('Exile#1234');
+  });
+});
+
+describe('notification settings', () => {
+  const prefs = { notifyMode: 'valuable' as const, notifyMinChaos: 10, notifyUnit: 'chaos' as const };
+
+  it('off silences items and upgrades', () => {
+    const off = { ...prefs, notifyMode: 'off' as const };
+    expect(shouldNotifyItem(off, 9999, 200)).toBe(false);
+    expect(shouldNotifyUpgrade(off)).toBe(false);
+  });
+
+  it('valuable uses the threshold in chaos', () => {
+    expect(shouldNotifyItem(prefs, 9, 200)).toBe(false);
+    expect(shouldNotifyItem(prefs, 10, 200)).toBe(true);
+    expect(shouldNotifyItem(prefs, null, 200)).toBe(false);
+    expect(shouldNotifyUpgrade(prefs)).toBe(true);
+  });
+
+  it('valuable converts a divine threshold with the current rate', () => {
+    const div = { ...prefs, notifyMinChaos: 1, notifyUnit: 'divine' as const };
+    expect(notifyThresholdChaos(div, 200)).toBe(200);
+    expect(shouldNotifyItem(div, 199, 200)).toBe(false);
+    expect(shouldNotifyItem(div, 200, 200)).toBe(true);
+    expect(notifyThresholdChaos(div, null)).toBe(FALLBACK_DIVINE_CHAOS);
+  });
+
+  it('all notifies about everything', () => {
+    expect(shouldNotifyItem({ ...prefs, notifyMode: 'all' }, 0, null)).toBe(true);
+  });
+
+  it('old profiles keep notifying about valuable items', () => {
+    const p = upgradeProfile({ notifyMinChaos: 25 } as Partial<Profile>);
+    expect(p.notifyMode).toBe('valuable');
+    expect(p.notifyUnit).toBe('chaos');
+    expect(p.notifyMinChaos).toBe(25);
   });
 });

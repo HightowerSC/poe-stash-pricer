@@ -319,6 +319,12 @@ button:disabled { opacity: .45; cursor: default; }
 
 .danger-zone { border: 1px solid rgba(192,88,74,.45); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 .danger-zone legend { color: #e08a7e; padding: 0 6px; font-size: 13px; }
+.notify-settings { border: 1px solid rgba(200,166,90,.3); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.notify-settings legend { color: #e2c27a; padding: 0 6px; font-size: 13px; }
+.notify-settings .seg { align-self: flex-start; flex-wrap: wrap; }
+.notify-settings .inline { display: flex; gap: 8px; align-items: center; }
+.notify-settings .inline input { width: 110px; }
+.notify-settings .inline select { width: auto; flex: 0 0 auto; }
 .btn.danger { border-color: rgba(192,88,74,.6); color: #e08a7e; }
 
 .unplaced { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px dashed rgba(200,166,90,.4); border-radius: 10px; }

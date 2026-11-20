@@ -147,7 +147,7 @@ export function HubPanel({ view, slotLabel, currency, divine }: Props) {
             {watch.settings.character && watch.settings.character !== view.summary.name && (
               <> · <button className="link" onClick={() => void saveWatch({ character: view.summary.name })}>pilnuj {view.summary.name}</button></>
             )}
-            {' '}· sprawdzane są 3 najsłabsze sloty · powiadomienie w systemie{' '}i na Discordzie (jeśli ustawiony w profilu)
+            {' '}· sprawdzane są 3 najsłabsze sloty · powiadomienie w systemie{' '}i na Discordzie (jeśli ustawiony w profilu i powiadomienia nie są wyłączone)
             {watch.lastRun && <> · ostatnio: {new Date(watch.lastRun).toLocaleTimeString()}</>}
           </p>
           {watch.lastError && <p className="error-text small">{watch.lastError}</p>}

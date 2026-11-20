@@ -15,8 +15,15 @@ export interface Profile {
   hardcore: boolean;
   /** Name of the public stash tab that acts as the inbox. Empty = all public tabs. */
   watchedTab: string;
-  /** Minimum value (in chaos) for a notification. */
+  /**
+   * Which notifications the app sends (system pop-up, Discord, upgrade watch):
+   * 'off' = none, 'valuable' = only items worth at least the threshold, 'all' = every newly priced item.
+   */
+  notifyMode: 'off' | 'valuable' | 'all';
+  /** Notification threshold, in the unit below (the field name is kept for old settings files). */
   notifyMinChaos: number;
+  /** Unit of the notification threshold. */
+  notifyUnit: 'chaos' | 'divine';
   /** Items worth less than this (in chaos) are marked as cheap in the list. 0 = off. */
   minValueChaos: number;
   /** Hide items below minValueChaos instead of only dimming them. */
