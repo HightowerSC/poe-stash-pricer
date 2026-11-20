@@ -9,6 +9,8 @@ export interface SessionState {
   divineRate: number | null;
 }
 
+export interface FlipState { at: string | null; rows: import('./types').FlipRow[]; running: boolean }
+
 export interface PricerApi {
   getSettings(): Promise<AppSettings>;
   saveSettings(settings: AppSettings): Promise<void>;
@@ -26,6 +28,10 @@ export interface PricerApi {
   upgradeSearch(slot: string): Promise<UpgradeResult>;
   getUpgradeWatch(): Promise<import('./types').UpgradeWatchState>;
   saveUpgradeWatch(s: import('./types').UpgradeWatchSettings): Promise<import('./types').UpgradeWatchState>;
+  exportBackup(withSecrets: boolean): Promise<unknown>;
+  importBackup(backup: unknown): Promise<{ profiles: number; files: number }>;
+  getFlips(): Promise<FlipState>;
+  scanFlips(): Promise<FlipState>;
   runUpgradeWatch(): Promise<import('./types').UpgradeWatchState>;
   /** Prices an item from text copied in game with Ctrl+C. */
   checkText(text: string): Promise<PriceCheck>;

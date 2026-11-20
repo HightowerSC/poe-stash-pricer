@@ -166,17 +166,20 @@ export function ItemDetails({ data, currency, divine, minValue, onClose }: Props
         <div className="section comparables">
           <h3>Najbliższe oferty</h3>
           <table>
-            <thead><tr><th>Cena</th><th>W chaos</th><th>Podobieństwo</th></tr></thead>
+            <thead><tr><th>Cena</th><th>W chaos</th><th>Podobieństwo</th><th /></tr></thead>
             <tbody>
               {price.comparables.map((c, i) => (
-                <tr key={i}>
-                  <td>{c.originalAmount} {c.originalCurrency}</td>
+                <tr key={i} className={c.suspicious ? 'suspicious' : ''} title={c.suspicious ? `Pominięta: ${c.suspicious}` : c.seller ? `Sprzedawca: ${c.seller}` : undefined}>
+                  <td>{c.originalAmount} {c.originalCurrency}{c.suspicious && <span className="sus-tag">⚠ podejrzana</span>}</td>
                   <td>{Math.round(c.chaos)}c</td>
                   <td><div className="simbar"><span style={{ width: `${Math.round(c.similarity * 100)}%` }} /></div></td>
+                  <td>{c.whisper && !c.suspicious && <CopyWhisper text={c.whisper} />}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {price.comparables.some((c) => c.suspicious) && <div className="small muted">⚠ Oferty oznaczone jako podejrzane (przynęty, price-fixing, jeden sprzedawca z wieloma kopiami) nie są liczone do ceny.</div>}
+          {price.comparables.some((c) => c.whisper) && <div className="small muted">„Kopiuj” kopiuje gotową wiadomość do sprzedawcy – wklej ją w grze (Enter, Ctrl+V). Program sam nic nie wysyła.</div>}
         </div>
       ) : null}
 
@@ -216,5 +219,15 @@ function CraftTable({ report, currency, divine }: { report: CraftReport; currenc
       )}
       <div className="small muted">Koszty benchu są orientacyjne (3.30) – sprawdź je przy stole w grze.</div>
     </>
+  );
+}
+
+/** Copies the trade-site whisper to the clipboard; the player pastes it in game themselves. */
+export function CopyWhisper({ text }: { text: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button className="btn ghost small" title={text} onClick={() => {
+      void navigator.clipboard.writeText(text).then(() => { setDone(true); setTimeout(() => setDone(false), 1500); });
+    }}>{done ? 'Skopiowano ✓' : 'Kopiuj wiadomość'}</button>
   );
 }

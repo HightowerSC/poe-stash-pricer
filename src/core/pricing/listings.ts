@@ -10,6 +10,8 @@ export interface ListingSummary {
   high: number | null;
   confidence: Confidence;
   used: ComparableListing[];
+  /** Listings left out as suspicious, with the reason. */
+  suspicious: ComparableListing[];
   note: string;
 }
 
@@ -22,10 +24,16 @@ export function summarizeListings(listings: ComparableListing[], now = Date.now(
   });
   const sorted = [...fresh].filter((l) => l.chaos > 0).sort((a, b) => a.chaos - b.chaos);
   if (sorted.length === 0) {
-    return { chaos: null, low: null, high: null, confidence: 'low', used: [], note: 'Brak porównywalnych ofert' };
+    return { chaos: null, low: null, high: null, confidence: 'low', used: [], suspicious: [], note: 'Brak porównywalnych ofert' };
   }
 
-  const cleaned = dropPriceFixers(sorted);
+  const { kept, flooded } = onePerSeller(sorted);
+  const cleaned = dropPriceFixers(kept);
+  const baits = kept.slice(0, kept.length - cleaned.length);
+  const suspicious = [
+    ...baits.map((l) => ({ ...l, suspicious: 'dużo taniej od reszty – zwykle przynęta (price-fixing) albo pomyłka' })),
+    ...flooded.map((l) => ({ ...l, suspicious: 'ten sam sprzedawca wystawia wiele kopii – liczony raz' })),
+  ];
   const top = cleaned.slice(0, 10);
   const q1 = quantile(top.map((l) => l.chaos), 0.25);
   const median = quantile(top.map((l) => l.chaos), 0.5);
@@ -41,8 +49,25 @@ export function summarizeListings(listings: ComparableListing[], now = Date.now(
     high: round(median),
     confidence,
     used: top,
-    note: `${top.length} ofert (odrzucono ${sorted.length - cleaned.length} podejrzanie tanich)`,
+    suspicious,
+    note: `${top.length} ofert` + (suspicious.length ? ` (pominięto ${suspicious.length} podejrzanych)` : ''),
   };
+}
+
+/**
+ * One seller listing many copies can move the median (a common way to fake a price):
+ * keep only the cheapest listing per seller. Listings without a seller are all kept.
+ */
+export function onePerSeller(sorted: ComparableListing[]): { kept: ComparableListing[]; flooded: ComparableListing[] } {
+  const seen = new Set<string>();
+  const kept: ComparableListing[] = [];
+  const flooded: ComparableListing[] = [];
+  for (const l of sorted) {
+    if (l.seller && seen.has(l.seller)) { flooded.push(l); continue; }
+    if (l.seller) seen.add(l.seller);
+    kept.push(l);
+  }
+  return { kept, flooded };
 }
 
 /**

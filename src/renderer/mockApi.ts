@@ -1,4 +1,6 @@
-import type { PricerApi, SessionState } from '../shared/api';
+import type { FlipState, PricerApi, SessionState } from '../shared/api';
+import { makeBackup, restoreBackup } from '../core/extras/backup';
+import { FLIP_CURRENCIES, flipRow, rankFlips } from '../core/market/flip';
 import type { AppSettings, PricedItem } from '../shared/types';
 import { demoItems, demoValue } from '../core/demo';
 import { sessionSummary } from '../core/extras/history';
@@ -24,6 +26,7 @@ export function browserMockApi(): PricerApi {
   let items: PricedItem[] = [];
   let watch: UpgradeWatchState = { settings: normalizeWatch(null), running: false, lastRun: null, lastError: null, finds: [] };
   const watchReported = new Set<string>();
+  let flips: FlipState = { at: null, rows: [], running: false };
   let session: SessionState = { summary: sessionSummary([], new Date().toISOString()), value: [], divineRate: null };
   const itemListeners = new Set<(i: PricedItem[]) => void>();
   const sessionListeners = new Set<(s: SessionState) => void>();
@@ -64,6 +67,29 @@ export function browserMockApi(): PricerApi {
     },
     async upgradeSearch(slot) {
       return { slot, wants: ['życie 70+', 'fire res 40%+'], total: 42, tradeUrl: 'https://www.pathofexile.com/trade', offers: [35, 48, 60].map((c, i) => ({ chaos: c, amount: c, currency: 'chaos', name: `Demo ${i + 1}`, mods: ['+75 to maximum Life', '+42% to Fire Resistance'] })) };
+    },
+    async exportBackup(withSecrets) {
+      const files: Record<string, unknown> = {};
+      try { files['challenges-Covens.json'] = JSON.parse(localStorage.getItem('pricer-challenges') ?? '[]'); } catch { /* ignore */ }
+      return makeBackup(settings, files, withSecrets);
+    },
+    async importBackup(backup) {
+      const r = restoreBackup(backup, settings);
+      settings = r.settings;
+      try {
+        localStorage.setItem('pricer-settings', JSON.stringify(settings));
+        const ch = Object.entries(r.files).find(([k]) => k.startsWith('challenges-'));
+        if (ch) localStorage.setItem('pricer-challenges', JSON.stringify(ch[1]));
+      } catch { /* ignore */ }
+      return { profiles: settings.profiles.length, files: Object.keys(r.files).length };
+    },
+    async getFlips() { return flips; },
+    async scanFlips() {
+      flips = { running: false, at: new Date().toISOString(), rows: rankFlips(FLIP_CURRENCIES.slice(0, 6).map(([id, name], i) => flipRow(id, name,
+        [{ give: 1, take: [182, 12.5, 0.32, 0.16, 0.62, 0.13][i], stock: 50 }, { give: 1, take: [183, 12.6, 0.33, 0.17, 0.63, 0.13][i], stock: 80 }],
+        [{ give: [172, 11.9, 0.29, 0.15, 0.6, 0.12][i], take: 1, stock: 900 }, { give: [170, 11.8, 0.28, 0.15, 0.59, 0.11][i], take: 1, stock: 900 }],
+        [180, 12, 0.3, 0.15, 0.6, 0.12][i]))) };
+      return flips;
     },
     async getUpgradeWatch() { return watch; },
     async saveUpgradeWatch(settings) { watch = { ...watch, settings: normalizeWatch(settings) }; return watch; },

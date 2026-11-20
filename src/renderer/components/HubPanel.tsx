@@ -3,6 +3,7 @@ import type { CharacterView, UpgradeResult, UpgradeWatchState } from '../../shar
 import { diagnose, UPGRADE_CATEGORY } from '../../core/hub/upgrades';
 import { buildAdvice } from '../../core/hub/build';
 import { formatPrice } from '../format';
+import { CopyWhisper } from './ItemDetails';
 
 interface Props {
   view: CharacterView;
@@ -111,6 +112,7 @@ export function HubPanel({ view, slotLabel, currency, divine }: Props) {
                         {r.offers.slice(0, 5).map((o, i) => (
                           <li key={i} title={o.mods.join('\n')}>
                             <b>{o.chaos != null ? formatPrice(o.chaos, currency, divine) : `${o.amount} ${o.currency}`}</b> – {o.name}
+                            {o.whisper && <> <CopyWhisper text={o.whisper} /></>}
                           </li>
                         ))}
                       </ul>

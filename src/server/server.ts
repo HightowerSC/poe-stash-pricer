@@ -128,6 +128,10 @@ const server = http.createServer(async (req, res) => {
       case 'GET /api/upgrade-watch': return json(res, 200, service.getUpgradeWatch());
       case 'POST /api/upgrade-watch': return json(res, 200, service.saveUpgradeWatch((await readBody(req)).settings));
       case 'POST /api/upgrade-watch/run': return json(res, 200, await service.runUpgradeWatch(true));
+      case 'POST /api/backup/export': return json(res, 200, service.exportBackup(!!(await readBody(req)).withSecrets));
+      case 'POST /api/backup/import': return json(res, 200, service.importBackup((await readBody(req)).backup));
+      case 'GET /api/flip': return json(res, 200, service.getFlips());
+      case 'POST /api/flip/scan': return json(res, 200, await service.scanFlips());
       case 'POST /api/stop': service.stop(); return json(res, 200, { ok: true });
       case 'POST /api/discord/test': {
         const { webhook } = await readBody(req);

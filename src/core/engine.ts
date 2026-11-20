@@ -192,7 +192,7 @@ export class PricingEngine {
       sampleSize: summary.used.length,
       note: `${summary.note}; filtry: ${last.chosen.length ? last.chosen.map((c) => c.text).join(' | ') : 'baza'}${dropped(filters, last.chosen, last.relaxed)}`,
       lowerBound: last.relaxed.length > 0 || undefined,
-      comparables: summary.used,
+      comparables: [...summary.used, ...summary.suspicious.slice(0, 5)],
       tradeUrl: this.trade.tradeUrl(this.league, last.id, this.profile.realm),
     };
   }

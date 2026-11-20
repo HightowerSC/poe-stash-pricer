@@ -76,6 +76,20 @@ export class TradeClient {
     return (await res.json()) as TradeSearchResult;
   }
 
+  /**
+   * Bulk item exchange: offers of players who give `want` for `have` (cheapest first).
+   * Each offer: the seller gives item.amount of `want` for exchange.amount of `have`.
+   */
+  async exchange(league: string, want: string, have: string, realm: Realm = 'pc'): Promise<ExchangeOffer[]> {
+    const realmPart = realm === 'pc' ? '' : `${realm}/`;
+    const res = await this.call(`${SITE}/api/trade/exchange/${realmPart}${encodeURIComponent(league)}`, {
+      method: 'POST',
+      body: JSON.stringify({ query: { status: { option: 'online' }, have: [have], want: [want] }, sort: { have: 'asc' }, engine: 'new' }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return parseExchange((await res.json()) as any);
+  }
+
   /** Fetches full listings, at most 10 ids per call (the site's limit). */
   async fetch(ids: string[], queryId: string): Promise<any[]> {
     const out: any[] = [];
@@ -159,6 +173,8 @@ export function toComparables(listings: any[], chaosPer: (currency: string) => n
         originalCurrency: price.currency,
         similarity,
         indexedAt: l.listing.indexed,
+        whisper: typeof l.listing.whisper === 'string' ? l.listing.whisper : undefined,
+        seller: l.listing.account?.name,
       };
     })
     .filter((x): x is ComparableListing => x !== null);
@@ -166,4 +182,28 @@ export function toComparables(listings: any[], chaosPer: (currency: string) => n
 
 export function itemFromListing(l: any): PoeItem | null {
   return l?.item ?? null;
+}
+
+export interface ExchangeOffer {
+  /** Seller gives this much of the wanted currency… */
+  give: number;
+  /** …for this much of what we have. */
+  take: number;
+  stock: number;
+  seller?: string;
+  whisper?: string;
+}
+
+/** Reads the bulk exchange response (result is an object keyed by listing id). */
+export function parseExchange(json: any): ExchangeOffer[] {
+  const out: ExchangeOffer[] = [];
+  for (const r of Object.values(json?.result ?? {}) as any[]) {
+    for (const o of r?.listing?.offers ?? []) {
+      const give = Number(o?.item?.amount);
+      const take = Number(o?.exchange?.amount);
+      if (!(give > 0) || !(take > 0)) continue;
+      out.push({ give, take, stock: Number(o?.item?.stock ?? give), seller: r?.listing?.account?.name, whisper: typeof o?.item?.whisper === 'string' ? o.item.whisper : undefined });
+    }
+  }
+  return out;
 }

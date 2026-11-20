@@ -91,6 +91,13 @@ Jeśli coś nie działa, pasek stanu pod kafelkami podaje przyczynę (np. nieakt
 - **Essence w doradcy craftu** (0.5.0) – na białych bazach zbroi i biżuterii program podpowiada Deafening Essence (życie, odporności), z ceną essence z poe.ninja i szacowaną ceną przedmiotu po crafcie.
 - **Zakładka Challenge** – wklej listę challenge'y ligi (jedna w linii), odhaczaj zrobione, ustaw kolejność, dopisz notatki. Program podpowiada, co przygotować (mapy, fragmenty bossów, Heist, crafting…). Lista jest zapisywana osobno dla każdej ligi.
 
+## Handel i narzędzia (od 0.6.0)
+
+- **Flip walut** (zakładka Handel) – cena, której chcą sprzedający, i cena, którą płacą kupujący, z wymiany hurtowej na trade, marża i zysk na wybraną liczbę sztuk.
+- **Kopiuj wiadomość** – przy ofertach (Najbliższe oferty, Szukaj ulepszenia, Flip) kopiuje gotowy whisper do sprzedawcy. Wklejasz go w grze sam – program niczego nie wysyła.
+- **Wykrywanie price-fixingu** – oferty dużo tańsze od reszty (przynęty) i wiele kopii od jednego sprzedawcy są oznaczane ⚠ i nie wpływają na cenę.
+- **Kopia zapasowa ustawień** (⚙ Ustawienia) – zapis i wczytanie profili, challenge'y i pilnowania ulepszeń z pliku. POESESSID i webhook tylko na życzenie.
+
 ## Plany na przyszłość
 
 - **Doradca craftu – dalej** – harvest, meta-crafty i wiele kroków craftu naraz.

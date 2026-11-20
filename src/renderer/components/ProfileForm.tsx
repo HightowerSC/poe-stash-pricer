@@ -44,6 +44,35 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
     }
   }
 
+  const [withSecrets, setWithSecrets] = useState(false);
+  const [backupState, setBackupState] = useState('');
+  async function exportBackup() {
+    try {
+      const data = await window.pricer.exportBackup(withSecrets);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `poe-stash-pricer-kopia-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      setBackupState(withSecrets ? 'Zapisano kopię (z POESESSID – nie udostępniaj tego pliku).' : 'Zapisano kopię (bez POESESSID i webhooka).');
+    } catch (e) {
+      setBackupState(`Błąd: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  async function importBackup(file: File | undefined) {
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!window.confirm('Wczytać ustawienia z kopii? Profile o tych samych nazwach zostaną zastąpione.')) return;
+      const r = await window.pricer.importBackup(data);
+      setBackupState(`Wczytano ${r.profiles} profil(e) i ${r.files} plik(i). Przeładowuję…`);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e) {
+      setBackupState(`Błąd: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
   const set = <K extends keyof Profile>(k: K, v: Profile[K]) => setP({ ...p, [k]: v });
 
   function submit(e: React.FormEvent) {
@@ -155,6 +184,24 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
             <button type="button" className="btn ghost danger" onClick={() => void clearItems(true)}>Wyczyść przedmioty (wszystkie ligi)</button>
           </div>
           {clearState && <span className="hint">{clearState}</span>}
+        </fieldset>
+      )}
+      {initial && (
+        <fieldset className="danger-zone">
+          <legend>Kopia zapasowa ustawień</legend>
+          <span className="hint">Profile, lista challenge'y i ustawienia pilnowania ulepszeń w jednym pliku – np. do przeniesienia na inny komputer.</span>
+          <div className="inline">
+            <button type="button" className="btn ghost" onClick={() => void exportBackup()}>Zapisz kopię do pliku</button>
+            <label className="btn ghost file-btn">
+              Wczytaj kopię z pliku
+              <input type="file" accept="application/json,.json" onChange={(e) => { void importBackup(e.target.files?.[0]); e.target.value = ''; }} />
+            </label>
+          </div>
+          <label className="check wide">
+            <input type="checkbox" checked={withSecrets} onChange={(e) => setWithSecrets(e.target.checked)} />
+            Dołącz POESESSID i webhook Discord (plik będzie wtedy poufny)
+          </label>
+          {backupState && <span className="hint">{backupState}</span>}
         </fieldset>
       )}
       {errors.length > 0 && <ul className="errors">{errors.map((e) => <li key={e}>{e}</li>)}</ul>}

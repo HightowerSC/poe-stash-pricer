@@ -26,6 +26,9 @@ import { diagnose, upgradeQuery } from './hub/upgrades';
 import type { Challenge } from './hub/challenges';
 import type { UpgradeResult, UpgradeWatchSettings, UpgradeWatchState } from '../shared/types';
 import { newFinds, normalizeWatch } from './hub/watch';
+import { BACKUP_FILE, makeBackup, restoreBackup, type Backup } from './extras/backup';
+import { FLIP_CURRENCIES, flipRow, rankFlips } from './market/flip';
+import type { FlipRow } from '../shared/types';
 import { buildCharacter, demoCharacter, demoCharacters, sortCharacters, toSummary } from './character';
 
 export type ServiceEvent =
@@ -47,6 +50,7 @@ export class PricerService {
   private watchTimer: ReturnType<typeof setInterval> | null = null;
   private watchState: UpgradeWatchState | null = null;
   private watchReported = new Set<string>();
+  private flips: { at: string | null; rows: FlipRow[]; running: boolean } = { at: null, rows: [], running: false };
   /** Last items priced from Ctrl+C / pasted text, newest first. */
   private checks: PriceCheck[] = [];
   /** Gear of the last opened character, so the craft advisor works on it too. */
@@ -408,7 +412,7 @@ export class PricerService {
       const pr = l?.listing?.price ?? {};
       const rate = pr.currency === 'chaos' ? 1 : engine.chaosRate(pr.currency);
       const it = normalizeItem(l.item);
-      return { chaos: rate == null ? null : Math.round(pr.amount * rate), amount: pr.amount, currency: pr.currency, name: it.name ? `${it.name}, ${it.typeLine}` : it.typeLine, mods: [...(it.implicitMods ?? []), ...(it.explicitMods ?? []), ...(it.craftedMods ?? [])] };
+      return { chaos: rate == null ? null : Math.round(pr.amount * rate), amount: pr.amount, currency: pr.currency, name: it.name ? `${it.name}, ${it.typeLine}` : it.typeLine, mods: [...(it.implicitMods ?? []), ...(it.explicitMods ?? []), ...(it.craftedMods ?? [])], whisper: typeof l?.listing?.whisper === 'string' ? l.listing.whisper : undefined };
     }).filter((o: { amount?: number }) => o.amount);
     return { slot, wants: q.wants, total: res.total, offers, tradeUrl: trade.tradeUrl(league, res.id, profile.realm) };
   }
@@ -488,6 +492,72 @@ export class PricerService {
     if (!webhook) return;
     const payload = { username: 'PoE Stash Pricer', embeds: [{ title: `Ulepszenie dla ${character}: ${f.slot} za ${f.chaos}c`.slice(0, 250), url: f.tradeUrl, description: `${f.name}\n${f.wants.join(', ')}`.slice(0, 1000), color: 0xc8a65a }] };
     sendDiscord(fetch, webhook, payload).catch((e) => this.emit({ type: 'status', payload: { text: `Discord: ${msg(e)}`, error: true } }));
+  }
+
+  // ---------- backup ----------
+
+  exportBackup(withSecrets: boolean): Backup {
+    const files: Record<string, unknown> = {};
+    for (const f of fs.readdirSync(this.dataDir)) if (BACKUP_FILE.test(f)) files[f] = this.readJson(f, null);
+    return makeBackup(this.getSettings(), files, withSecrets);
+  }
+
+  importBackup(raw: unknown): { profiles: number; files: number } {
+    const { settings, files } = restoreBackup(raw, this.getSettings());
+    this.saveSettings(settings);
+    for (const [name, data] of Object.entries(files)) this.writeJson(name, data);
+    this.watchState = null;
+    this.watchReported.clear();
+    this.scheduleUpgradeWatch();
+    return { profiles: settings.profiles.length, files: Object.keys(files).length };
+  }
+
+  // ---------- currency flipping ----------
+
+  getFlips() {
+    return this.flips;
+  }
+
+  /** Reads the bulk exchange for each currency in both directions (≈2 s apart, trade limits). */
+  async scanFlips(): Promise<{ at: string | null; rows: FlipRow[]; running: boolean }> {
+    if (this.flips.running) return this.flips;
+    this.flips.running = true;
+    try {
+      if (this.demo) {
+        this.flips.rows = rankFlips(FLIP_CURRENCIES.map(([id, name], i) => {
+          const base = [180, 12, 0.3, 0.15, 0.6, 0.12, 0.1, 0.4, 0.5, 0.8, 1.2, 1.5][i] ?? 1;
+          return { id, name, ask: base * 1.06, bid: base * (0.97 - (i % 3) * 0.02), ninja: base, marginPct: Math.round(((1.06 / (0.97 - (i % 3) * 0.02)) - 1) * 1000) / 10, sellers: 20, buyers: 12 };
+        }));
+      } else {
+        if (!this.engine) await this.start(false);
+        const engine = this.engine;
+        const trade = this.trade;
+        if (!engine || !trade) throw new Error('Nie udało się uruchomić wyceny.');
+        const realm = this.activeProfile().realm;
+        const rows: FlipRow[] = [];
+        let i = 0;
+        for (const [id, name] of FLIP_CURRENCIES) {
+          i++;
+          this.status(`Flip: sprawdzam ${name} (${i}/${FLIP_CURRENCIES.length})…`);
+          if (id === 'chaos') continue;
+          try {
+            const sellers = await trade.exchange(this.league, id, 'chaos', realm);
+            await new Promise((r) => setTimeout(r, 2000));
+            const buyers = await trade.exchange(this.league, 'chaos', id, realm);
+            await new Promise((r) => setTimeout(r, 2000));
+            rows.push(flipRow(id, name, sellers, buyers, engine.chaosRate(id) ?? engine.chaosRate(name)));
+          } catch (e) {
+            this.status(`Flip: ${name} – ${msg(e)}`, true);
+          }
+        }
+        this.flips.rows = rankFlips(rows);
+        this.status(`Flip: sprawdzono ${rows.length} walut.`);
+      }
+      this.flips.at = new Date().toISOString();
+    } finally {
+      this.flips.running = false;
+    }
+    return this.flips;
   }
 
   getChecks(): PriceCheck[] {

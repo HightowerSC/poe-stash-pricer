@@ -99,6 +99,11 @@ export interface ComparableListing {
   originalCurrency: string;
   similarity: number; // 0..1
   indexedAt?: string;
+  /** Ready "@seller Hi, I would like to buy…" message from the trade site (copied, never sent by the app). */
+  whisper?: string;
+  seller?: string;
+  /** Why this listing was not used for the price (price-fixing / bait / one seller flooding). */
+  suspicious?: string;
 }
 
 export interface PriceEstimate {
@@ -252,7 +257,7 @@ export interface UpgradeResult {
   /** What the search asks for, e.g. "życie 80+", "fire res 40%+". */
   wants: string[];
   total: number;
-  offers: { chaos: number | null; amount: number; currency: string; name: string; mods: string[] }[];
+  offers: { chaos: number | null; amount: number; currency: string; name: string; mods: string[]; whisper?: string }[];
   tradeUrl: string;
 }
 
@@ -282,4 +287,20 @@ export interface UpgradeWatchState {
   lastError: string | null;
   /** Newest first. */
   finds: UpgradeWatchFind[];
+}
+
+/** Currency flipping: market prices for one currency in chaos. */
+export interface FlipRow {
+  id: string;
+  name: string;
+  /** What sellers ask (you pay when buying now). */
+  ask: number | null;
+  /** What buyers pay (you get when selling now). */
+  bid: number | null;
+  ninja: number | null;
+  /** (ask − bid) / bid in %: the flipper's gross margin. */
+  marginPct: number | null;
+  sellers: number;
+  buyers: number;
+  whisperBuy?: string;
 }

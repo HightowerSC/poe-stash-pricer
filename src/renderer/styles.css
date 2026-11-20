@@ -367,3 +367,14 @@ button:disabled { opacity: .45; cursor: default; }
 .hub-finds { margin: 4px 0; padding-left: 18px; line-height: 1.6; }
 button.link { background: none; border: 0; padding: 0; color: var(--gold); cursor: pointer; font: inherit; text-decoration: underline; }
 .hub .hub-links { margin-top: 8px; }
+.comparables tr.suspicious td { opacity: .55; }
+.sus-tag { margin-left: 6px; font-size: 11px; color: #e08b80; }
+.file-btn { position: relative; overflow: hidden; display: inline-flex !important; flex-direction: row !important; cursor: pointer; }
+.file-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.market { display: flex; flex-direction: column; gap: 12px; }
+.market .inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.inline-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.inline-label input { width: 80px; }
+.flip-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+.flip-table th, .flip-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.flip-table tr.gain td:first-child { color: #8fd48f; }
