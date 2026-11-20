@@ -24,7 +24,8 @@ import { parseItemText } from './itemText';
 import { normalizeItem } from './normalize';
 import { diagnose, upgradeQuery } from './hub/upgrades';
 import type { Challenge } from './hub/challenges';
-import type { UpgradeResult } from '../shared/types';
+import type { UpgradeResult, UpgradeWatchSettings, UpgradeWatchState } from '../shared/types';
+import { newFinds, normalizeWatch } from './hub/watch';
 import { buildCharacter, demoCharacter, demoCharacters, sortCharacters, toSummary } from './character';
 
 export type ServiceEvent =
@@ -43,6 +44,9 @@ export class PricerService {
   private repriceTimer: ReturnType<typeof setInterval> | null = null;
   private repricing = false;
   private lastCharacter: CharacterView | null = null;
+  private watchTimer: ReturnType<typeof setInterval> | null = null;
+  private watchState: UpgradeWatchState | null = null;
+  private watchReported = new Set<string>();
   /** Last items priced from Ctrl+C / pasted text, newest first. */
   private checks: PriceCheck[] = [];
   /** Gear of the last opened character, so the craft advisor works on it too. */
@@ -59,6 +63,7 @@ export class PricerService {
 
   constructor(private readonly dataDir: string) {
     fs.mkdirSync(dataDir, { recursive: true });
+    this.scheduleUpgradeWatch();
   }
 
   on(cb: (e: ServiceEvent) => void): () => void {
@@ -406,6 +411,83 @@ export class PricerService {
       return { chaos: rate == null ? null : Math.round(pr.amount * rate), amount: pr.amount, currency: pr.currency, name: it.name ? `${it.name}, ${it.typeLine}` : it.typeLine, mods: [...(it.implicitMods ?? []), ...(it.explicitMods ?? []), ...(it.craftedMods ?? [])] };
     }).filter((o: { amount?: number }) => o.amount);
     return { slot, wants: q.wants, total: res.total, offers, tradeUrl: trade.tradeUrl(league, res.id, profile.realm) };
+  }
+
+  getUpgradeWatch(): UpgradeWatchState {
+    if (!this.watchState) {
+      const saved = this.readJson<Partial<UpgradeWatchState>>('upgrade-watch.json', {});
+      this.watchState = { settings: normalizeWatch(saved.settings), running: false, lastRun: saved.lastRun ?? null, lastError: null, finds: Array.isArray(saved.finds) ? saved.finds.slice(0, 20) : [] };
+      for (const f of this.watchState.finds) this.watchReported.add(`${f.slot}|${f.name}|${f.chaos}`);
+    }
+    return this.watchState;
+  }
+
+  saveUpgradeWatch(settings: Partial<UpgradeWatchSettings>): UpgradeWatchState {
+    const st = this.getUpgradeWatch();
+    st.settings = normalizeWatch(settings);
+    this.persistWatch();
+    this.scheduleUpgradeWatch();
+    return st;
+  }
+
+  private persistWatch() {
+    const st = this.getUpgradeWatch();
+    this.writeJson('upgrade-watch.json', { settings: st.settings, lastRun: st.lastRun, finds: st.finds });
+  }
+
+  private scheduleUpgradeWatch() {
+    if (this.watchTimer) clearInterval(this.watchTimer);
+    this.watchTimer = null;
+    const { settings } = this.getUpgradeWatch();
+    if (!settings.enabled) return;
+    this.watchTimer = setInterval(() => { void this.runUpgradeWatch(false); }, settings.everyMinutes * 60_000);
+    this.watchTimer.unref?.();
+  }
+
+  /**
+   * One pass: re-read the character, search trade for its weakest slots (max 3, a few seconds apart)
+   * and notify about offers within budget. manual=false (timer) never starts the app by itself.
+   */
+  async runUpgradeWatch(manual: boolean): Promise<UpgradeWatchState> {
+    const st = this.getUpgradeWatch();
+    if (st.running) return st;
+    if (!manual && !this.engine && !this.demo) return st;
+    const name = st.settings.character || this.lastCharacter?.summary.name;
+    if (!name) {
+      st.lastError = 'Najpierw otwórz postać w zakładce Postać.';
+      return st;
+    }
+    st.running = true;
+    try {
+      const view = await this.character(name);
+      const slots = diagnose(view).weakestSlots;
+      const results: UpgradeResult[] = [];
+      for (const slot of slots) {
+        if (results.length && !this.demo) await new Promise((r) => setTimeout(r, 3000));
+        try { results.push(await this.upgradeSearch(slot)); } catch { /* one slot failing does not stop the rest */ }
+      }
+      const at = new Date().toISOString();
+      const finds = newFinds(results, st.settings.budgetChaos, this.watchReported, at);
+      st.finds = [...finds, ...st.finds].slice(0, 20);
+      st.lastRun = at;
+      st.lastError = slots.length ? null : 'Brak rare/magic ekwipunku do ulepszenia.';
+      for (const f of finds) this.announceUpgrade(f, name);
+      this.persistWatch();
+    } catch (e) {
+      st.lastError = msg(e);
+    } finally {
+      st.running = false;
+    }
+    return st;
+  }
+
+  private announceUpgrade(f: UpgradeWatchState['finds'][number], character: string) {
+    this.emit({ type: 'notify', payload: { title: `Ulepszenie: ${f.slot} za ${f.chaos}c`, body: `${character}: ${f.name} (${f.wants.join(', ')})` } });
+    let webhook = '';
+    try { webhook = this.activeProfile().discordWebhook; } catch { /* no profile */ }
+    if (!webhook) return;
+    const payload = { username: 'PoE Stash Pricer', embeds: [{ title: `Ulepszenie dla ${character}: ${f.slot} za ${f.chaos}c`.slice(0, 250), url: f.tradeUrl, description: `${f.name}\n${f.wants.join(', ')}`.slice(0, 1000), color: 0xc8a65a }] };
+    sendDiscord(fetch, webhook, payload).catch((e) => this.emit({ type: 'status', payload: { text: `Discord: ${msg(e)}`, error: true } }));
   }
 
   getChecks(): PriceCheck[] {

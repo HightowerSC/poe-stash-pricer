@@ -6,7 +6,7 @@
 import type { CraftOption, CraftReport, CraftSuggestion, PoeItem } from '../../shared/types';
 import { rarity } from '../pricing/classify';
 import { modWeight } from '../pricing/tradeQuery';
-import { benchCraftsFor, RANDOM_CRAFTS, type Slot } from './benchCrafts';
+import { benchCraftsFor, essencesFor, RANDOM_CRAFTS, type Slot } from './benchCrafts';
 
 export interface AffixInfo {
   prefixes: number;
@@ -69,6 +69,11 @@ export function craftOptions(item: PoeItem): { options: CraftOption[]; reason?: 
   const r = rarity(item);
   if (item.corrupted) return { options: [], info, reason: 'Przedmiot jest skażony – nie da się go craftować.' };
   if ((item as { mirrored?: boolean }).mirrored) return { options: [], info, reason: 'Przedmiot jest skopiowany (mirrored).' };
+  if (r === 'normal') {
+    // A white base has no explicit mods, so nothing blocks the essence mod (implicits do not).
+    const options: CraftOption[] = essencesFor(itemSlot(item)).map((e) => ({ method: 'essence', label: `${e.name} → ${e.line}+ i losowe mody (rare)`, line: e.line, cost: { amount: 1, currency: e.name }, deterministic: true }));
+    return { options, info, reason: options.length ? undefined : 'Doradca obsługuje przedmioty magic i rare (essence – białe bazy zbroi i biżuterii).' };
+  }
   if (r !== 'rare' && r !== 'magic') return { options: [], info, reason: 'Doradca obsługuje przedmioty magic i rare.' };
   if (!info.known) return { options: [], info, reason: 'Brak danych o prefiksach/sufiksach (pojawiają się po wycenie z trade).' };
 
@@ -108,7 +113,9 @@ export function craftOptions(item: PoeItem): { options: CraftOption[]; reason?: 
  * are merged into pseudo totals anyway).
  */
 export function withCraft(item: PoeItem, line: string): PoeItem {
-  return { ...item, id: `${item.id}#craft`, explicitMods: [...(item.explicitMods ?? []), line] };
+  // An essence turns a normal base into a rare.
+  const frameType = item.frameType === 0 ? 2 : item.frameType;
+  return { ...item, id: `${item.id}#craft`, frameType, explicitMods: [...(item.explicitMods ?? []), line] };
 }
 
 /** Ranks bench crafts by weight of the mod so only a few trade searches are needed. */

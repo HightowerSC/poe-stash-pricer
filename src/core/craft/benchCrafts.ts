@@ -38,6 +38,22 @@ export const BENCH_CRAFTS: BenchCraft[] = [
   { line: '+35 to maximum Life', affix: 'prefix', slots: ['jewel'], conflicts: /to maximum Life$|increased maximum Life$/, cost: { amount: 1, currency: 'chaos' } },
 ];
 
+/**
+ * Essences on a normal (white) base: the item becomes rare with one guaranteed mod.
+ * Lines are the low end of the Deafening tier (used as "at least" in the trade search).
+ */
+export interface EssenceCraft { name: string; line: string; slots: Slot[] }
+export const ESSENCES: EssenceCraft[] = [
+  { name: 'Deafening Essence of Greed', line: '+80 to maximum Life', slots: [...ARMOUR, ...JEWELLERY] },
+  { name: 'Deafening Essence of Anger', line: '+40% to Fire Resistance', slots: [...ARMOUR, ...JEWELLERY] },
+  { name: 'Deafening Essence of Hatred', line: '+40% to Cold Resistance', slots: [...ARMOUR, ...JEWELLERY] },
+  { name: 'Deafening Essence of Wrath', line: '+40% to Lightning Resistance', slots: [...ARMOUR, ...JEWELLERY] },
+];
+
+export function essencesFor(slot: Slot | null): EssenceCraft[] {
+  return slot ? ESSENCES.filter((e) => e.slots.includes(slot)) : [];
+}
+
 /** Random crafts: shown with their cost only, because the result is not known in advance. */
 export const RANDOM_CRAFTS = {
   aug: { label: 'Orb of Augmentation – losowy mod na wolne miejsce (magic)', currency: 'aug' },

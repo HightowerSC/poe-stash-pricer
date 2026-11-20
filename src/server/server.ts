@@ -125,6 +125,9 @@ const server = http.createServer(async (req, res) => {
         const { slot } = await readBody(req);
         return json(res, 200, await service.upgradeSearch(String(slot ?? '')));
       }
+      case 'GET /api/upgrade-watch': return json(res, 200, service.getUpgradeWatch());
+      case 'POST /api/upgrade-watch': return json(res, 200, service.saveUpgradeWatch((await readBody(req)).settings));
+      case 'POST /api/upgrade-watch/run': return json(res, 200, await service.runUpgradeWatch(true));
       case 'POST /api/stop': service.stop(); return json(res, 200, { ok: true });
       case 'POST /api/discord/test': {
         const { webhook } = await readBody(req);

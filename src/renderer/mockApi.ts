@@ -8,6 +8,8 @@ import { craftReport, demoCraftPricer } from '../core/craft/advisor';
 import { demoCharacter, demoCharacters } from '../core/character';
 import { parseItemText } from '../core/itemText';
 import type { PriceCheck } from '../shared/types';
+import type { UpgradeWatchState } from '../shared/types';
+import { newFinds, normalizeWatch } from '../core/hub/watch';
 
 /** Used when the UI runs in a normal browser (design preview, screenshots). */
 export function browserMockApi(): PricerApi {
@@ -20,6 +22,8 @@ export function browserMockApi(): PricerApi {
     }
   } catch { /* storage unavailable */ }
   let items: PricedItem[] = [];
+  let watch: UpgradeWatchState = { settings: normalizeWatch(null), running: false, lastRun: null, lastError: null, finds: [] };
+  const watchReported = new Set<string>();
   let session: SessionState = { summary: sessionSummary([], new Date().toISOString()), value: [], divineRate: null };
   const itemListeners = new Set<(i: PricedItem[]) => void>();
   const sessionListeners = new Set<(s: SessionState) => void>();
@@ -60,6 +64,14 @@ export function browserMockApi(): PricerApi {
     },
     async upgradeSearch(slot) {
       return { slot, wants: ['życie 70+', 'fire res 40%+'], total: 42, tradeUrl: 'https://www.pathofexile.com/trade', offers: [35, 48, 60].map((c, i) => ({ chaos: c, amount: c, currency: 'chaos', name: `Demo ${i + 1}`, mods: ['+75 to maximum Life', '+42% to Fire Resistance'] })) };
+    },
+    async getUpgradeWatch() { return watch; },
+    async saveUpgradeWatch(settings) { watch = { ...watch, settings: normalizeWatch(settings) }; return watch; },
+    async runUpgradeWatch() {
+      const at = new Date().toISOString();
+      const finds = newFinds([await this.upgradeSearch('Gloves')], watch.settings.budgetChaos, watchReported, at);
+      watch = { ...watch, lastRun: at, lastError: null, finds: [...finds, ...watch.finds].slice(0, 20) };
+      return watch;
     },
     async checkText(text) {
       const item = parseItemText(text);

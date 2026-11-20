@@ -40,7 +40,7 @@ export function ItemDetails({ data, currency, divine, minValue, onClose }: Props
   const note = priceNote(price.chaos, divine);
   const [copied, setCopied] = useState(false);
   const [craft, setCraft] = useState<{ itemId: string; busy: boolean; report?: CraftReport; error?: string } | null>(null);
-  const craftable = item.frameType === 1 || item.frameType === 2;
+  const craftable = item.frameType === 0 || item.frameType === 1 || item.frameType === 2;
   const craftState = craft?.itemId === item.id ? craft : null;
 
   async function checkCrafts() {
@@ -146,7 +146,7 @@ export function ItemDetails({ data, currency, divine, minValue, onClose }: Props
           <h3>Doradca craftu</h3>
           {!craftState?.report && (
             <>
-              <div className="small muted">Sprawdza wolne prefiksy/sufiksy, bench crafty i orby oraz wycenia przedmiot z dodanym modem na trade.</div>
+              <div className="small muted">Sprawdza wolne prefiksy/sufiksy, bench crafty, orby i essence (białe bazy) oraz wycenia przedmiot z dodanym modem na trade.</div>
               <button className="btn" disabled={craftState?.busy} onClick={checkCrafts}>{craftState?.busy ? 'Sprawdzam…' : 'Sprawdź crafty'}</button>
             </>
           )}

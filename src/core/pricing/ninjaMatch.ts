@@ -33,6 +33,11 @@ export class NinjaIndex {
     }
   }
 
+  /** Chaos value of a currency-like row by exact name (e.g. an essence). */
+  valueOf(name: string): number | null {
+    return this.byName.get(name.toLowerCase())?.[0]?.chaosValue ?? null;
+  }
+
   get size() {
     return this.byName.size;
   }

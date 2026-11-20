@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
-import type { CharacterView, UpgradeResult } from '../../shared/types';
+import { useEffect, useMemo, useState } from 'react';
+import type { CharacterView, UpgradeResult, UpgradeWatchState } from '../../shared/types';
 import { diagnose, UPGRADE_CATEGORY } from '../../core/hub/upgrades';
+import { buildAdvice } from '../../core/hub/build';
 import { formatPrice } from '../format';
 
 interface Props {
@@ -15,6 +16,30 @@ const SEV: Record<string, string> = { high: 'Ważne', medium: 'Warto', low: 'Dro
 /** PoE HUB: what to fix on this character, cheap bench fixes first, then trade upgrades per slot. */
 export function HubPanel({ view, slotLabel, currency, divine }: Props) {
   const d = useMemo(() => diagnose(view), [view]);
+  const build = useMemo(() => buildAdvice(view), [view]);
+  const [watch, setWatch] = useState<UpgradeWatchState | null>(null);
+  const [watchBusy, setWatchBusy] = useState(false);
+
+  useEffect(() => {
+    const load = () => window.pricer.getUpgradeWatch().then(setWatch).catch(() => undefined);
+    void load();
+    const t = setInterval(load, 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  async function saveWatch(patch: Partial<UpgradeWatchState['settings']>) {
+    if (!watch) return;
+    const settings = { ...watch.settings, ...patch };
+    if (patch.enabled && !settings.character) settings.character = view.summary.name;
+    if (patch.enabled && 'Notification' in window && Notification.permission === 'default') void Notification.requestPermission();
+    setWatch({ ...watch, settings });
+    setWatch(await window.pricer.saveUpgradeWatch(settings));
+  }
+
+  async function runWatch() {
+    setWatchBusy(true);
+    try { setWatch(await window.pricer.runUpgradeWatch()); } finally { setWatchBusy(false); }
+  }
   const [results, setResults] = useState<Record<string, UpgradeResult | string>>({});
   const [busySlot, setBusySlot] = useState('');
 
@@ -99,7 +124,51 @@ export function HubPanel({ view, slotLabel, currency, divine }: Props) {
         {slots.length === 0 && <p className="muted small">Brak rare/magic ekwipunku do porównania.</p>}
       </div>
 
+      <h4>Pilnuj tanich ulepszeń</h4>
+      {watch && (
+        <div className="hub-watch">
+          <div className="inline">
+            <label className="check">
+              <input type="checkbox" checked={watch.settings.enabled} onChange={(e) => void saveWatch({ enabled: e.target.checked })} />
+              Sprawdzaj co
+            </label>
+            <input type="number" min={15} step={5} value={watch.settings.everyMinutes} onChange={(e) => void saveWatch({ everyMinutes: Number(e.target.value) })} />
+            <span>min, powiadom gdy ulepszenie kosztuje do</span>
+            <input type="number" min={0} step={5} value={watch.settings.budgetChaos} onChange={(e) => void saveWatch({ budgetChaos: Number(e.target.value) })} />
+            <span>chaos</span>
+            <button className="btn ghost small" disabled={watchBusy || watch.running} onClick={() => void runWatch()}>
+              {watchBusy || watch.running ? <><span className="spinner" /> Sprawdzam…</> : 'Sprawdź teraz'}
+            </button>
+          </div>
+          <p className="muted small">
+            Postać: <b>{watch.settings.character || view.summary.name}</b>
+            {watch.settings.character && watch.settings.character !== view.summary.name && (
+              <> · <button className="link" onClick={() => void saveWatch({ character: view.summary.name })}>pilnuj {view.summary.name}</button></>
+            )}
+            {' '}· sprawdzane są 3 najsłabsze sloty · powiadomienie w systemie{' '}i na Discordzie (jeśli ustawiony w profilu)
+            {watch.lastRun && <> · ostatnio: {new Date(watch.lastRun).toLocaleTimeString()}</>}
+          </p>
+          {watch.lastError && <p className="error-text small">{watch.lastError}</p>}
+          {watch.finds.length > 0 && (
+            <ul className="hub-finds">
+              {watch.finds.slice(0, 8).map((f) => (
+                <li key={`${f.slot}|${f.name}|${f.chaos}|${f.at}`}>
+                  <b>{formatPrice(f.chaos, currency, divine)}</b> – {label(f.slot)}: {f.name}
+                  <span className="muted small"> · {new Date(f.at).toLocaleString()} · </span>
+                  <a href={f.tradeUrl} target="_blank" rel="noopener">trade →</a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       <h4>Pomoc w budowie postaci</h4>
+      {build.length > 0 && (
+        <ul className="hub-issues">
+          {build.map((t) => <li key={t.text} className={`sev-${t.severity}`}><span className="sev">{t.area}</span> {t.text}</li>)}
+        </ul>
+      )}
       <ul className="hub-links">
         <li>
           <a href={ninjaBuilds} target="_blank" rel="noopener">Buildy klasy {view.summary.class} na poe.ninja</a>

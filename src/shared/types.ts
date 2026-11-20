@@ -167,12 +167,12 @@ export interface PricedItem {
 
 /** Doradca craftu: one way to add a mod to an item. */
 export interface CraftOption {
-  method: 'bench' | 'aug' | 'regal' | 'exalted';
+  method: 'bench' | 'essence' | 'aug' | 'regal' | 'exalted';
   label: string;
   /** The added mod line (bench crafts only). */
   line?: string;
   affix?: 'prefix' | 'suffix';
-  /** Cost in trade currency codes (chaos, divine, exalted, aug, regal). */
+  /** Cost in trade currency codes (chaos, divine, exalted, aug, regal) or an item name priced by poe.ninja (essences). */
   cost: { amount: number; currency: string };
   /** true = the result is known (bench), false = random (orbs). */
   deterministic: boolean;
@@ -254,4 +254,32 @@ export interface UpgradeResult {
   total: number;
   offers: { chaos: number | null; amount: number; currency: string; name: string; mods: string[] }[];
   tradeUrl: string;
+}
+
+/** PoE HUB: background upgrade watch settings (saved per user, in the app data folder). */
+export interface UpgradeWatchSettings {
+  enabled: boolean;
+  /** Character name; empty = the one opened last in the Postać tab. */
+  character: string;
+  /** Report offers up to this price. */
+  budgetChaos: number;
+  everyMinutes: number;
+}
+
+export interface UpgradeWatchFind {
+  slot: string;
+  name: string;
+  chaos: number;
+  wants: string[];
+  tradeUrl: string;
+  at: string;
+}
+
+export interface UpgradeWatchState {
+  settings: UpgradeWatchSettings;
+  running: boolean;
+  lastRun: string | null;
+  lastError: string | null;
+  /** Newest first. */
+  finds: UpgradeWatchFind[];
 }

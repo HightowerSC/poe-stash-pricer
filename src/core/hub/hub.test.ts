@@ -83,3 +83,63 @@ describe('PoE HUB challenges', () => {
     expect(progress([{ id: '1', title: 'a', done: true, notes: '' }, { id: '2', title: 'b', done: false, notes: '' }])).toEqual({ done: 1, total: 2 });
   });
 });
+
+import { buildAdvice, gemMaxLevel } from './build';
+import { newFinds, normalizeWatch } from './watch';
+import { craftOptions, withCraft } from '../craft/advisor';
+
+describe('PoE HUB build help', () => {
+  const gem = (typeLine: string, level = 20, quality = 20): PoeItem => ({ id: typeLine, name: '', typeLine, baseType: typeLine, icon: '', ilvl: 0, frameType: 4,
+    properties: [{ name: 'Level', values: [[`${level}`, 0]] }, ...(quality ? [{ name: 'Quality', values: [[`+${quality}%`, 1]] as [string, number][] }] : [])] });
+  const sockets = (n: number) => Array.from({ length: n }, () => ({ group: 0, sColour: 'B' }));
+
+  it('flags a 4-linked main skill, low gems, missing utility and flasks', () => {
+    const body = { slot: 'BodyArmour', item: item('b', [], { sockets: sockets(4) }), gems: [gem('Fireball', 12, 0), gem('Spell Echo Support', 20, 0), gem('Faster Casting Support', 15, 0), gem('Added Fire Damage Support')] };
+    const tips = buildAdvice(viewOf([body]));
+    expect(tips[0]).toMatchObject({ severity: 'high', area: 'Linki' });
+    expect(tips[0].text).toMatch(/Fireball jest w 4-linku/);
+    expect(tips.some((t) => /niskim poziomem: Fireball \(12\)/.test(t.text))).toBe(true);
+    expect(tips.some((t) => /skilla ruchu/.test(t.text))).toBe(true);
+    expect(tips.some((t) => /0\/5 flaszek/.test(t.text))).toBe(true);
+  });
+
+  it('is quiet about a 6-link with utility skills and good flasks', () => {
+    const body = { slot: 'BodyArmour', item: item('b', [], { sockets: sockets(6) }), gems: [gem('Fireball'), gem('Spell Echo Support'), gem('Flame Dash'), gem('Steelskin'), gem('Determination')] };
+    const flasks = ['of Staunching: Immunity to Bleeding', 'of Heat: Immunity to Freeze', 'Quicksilver Flask', 'Life Flask', 'Granite Flask']
+      .map((t, i) => ({ slot: 'Flask', item: item(`f${i}`, [t], { typeLine: t, frameType: 1 }), gems: [] }));
+    expect(buildAdvice(viewOf([body, ...flasks]))).toEqual([]);
+  });
+
+  it('knows short max levels', () => {
+    expect(gemMaxLevel('Awakened Spell Echo Support')).toBe(5);
+    expect(gemMaxLevel('Empower Support')).toBe(4);
+    expect(gemMaxLevel('Fireball')).toBe(20);
+  });
+});
+
+describe('PoE HUB upgrade watch', () => {
+  const r = (slot: string, prices: (number | null)[]) => ({ slot, wants: ['życie 60+'], total: prices.length, tradeUrl: 'u', offers: prices.map((c, i) => ({ chaos: c, amount: c ?? 1, currency: 'chaos', name: `${slot}${i}`, mods: [] })) });
+
+  it('reports the cheapest offer within budget once', () => {
+    const seen = new Set<string>();
+    const first = newFinds([r('Helm', [80, 30, 45]), r('Boots', [90, null])], 50, seen);
+    expect(first).toHaveLength(1);
+    expect(first[0]).toMatchObject({ slot: 'Helm', chaos: 30, name: 'Helm1' });
+    expect(newFinds([r('Helm', [30])], 50, seen)).toHaveLength(1); // different offer name
+    expect(newFinds([r('Helm', [80, 30, 45])], 50, seen)).toHaveLength(0);
+  });
+
+  it('normalizes settings with a minimum interval', () => {
+    expect(normalizeWatch({ everyMinutes: 1, budgetChaos: -5 })).toEqual({ enabled: false, character: '', budgetChaos: 50, everyMinutes: 15 });
+  });
+});
+
+describe('essence crafting', () => {
+  it('offers essences on a white armour base and searches the result as rare', () => {
+    const base: PoeItem = { id: 'w', name: '', typeLine: 'Two-Toned Boots', baseType: 'Two-Toned Boots', icon: '', ilvl: 86, frameType: 0, implicitMods: ['+12% to Fire and Cold Resistances'] };
+    const { options } = craftOptions(base);
+    expect(options.map((o) => o.cost.currency)).toContain('Deafening Essence of Greed');
+    expect(options.every((o) => o.method === 'essence')).toBe(true);
+    expect(withCraft(base, '+80 to maximum Life').frameType).toBe(2);
+  });
+});

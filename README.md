@@ -81,19 +81,20 @@ Jeśli coś nie działa, pasek stanu pod kafelkami podaje przyczynę (np. nieakt
 - Twoje przedmioty pochodzą z Twojej skrzyni (serwer GGG, POESESSID) albo z Ctrl+C. Trade służy wyłącznie do porównania z ofertami innych graczy.
 - Szanuje limity: User-Agent z kontaktem, max 2 równoległe zapytania do poe.ninja, odczyt nagłówków `X-Rate-Limit-*` trade i pauza przed przekroczeniem.
 
-## PoE HUB (od wersji 0.4.0)
+## PoE HUB (od wersji 0.4.0, rozbudowany w 0.5.0)
 
 - **Postać → „PoE HUB – co poprawić”** – diagnoza ekwipunku: brakujące odporności (do 75%), ujemny chaos res, mało życia, buty bez szybkości ruchu, puste sloty.
 - **Najtańsze poprawki** – crafty z crafting bencha, które łatają braki (np. +30% odporności na zimno za 1c), z kosztem. Jeśli program nie wie, czy przedmiot ma wolny sufiks/prefiks, mówi o tym wprost.
 - **Szukaj ulepszenia** (przy każdym slocie) – szuka na trade przedmiotu, który ma co najmniej tyle życia i odporności co obecny, plus część brakujących odporności; pokazuje najtańsze oferty i link do wyszukiwania. Najsłabsze sloty są podświetlone.
-- **Pomoc w budowie postaci** – link do buildów Twojej klasy na poe.ninja i instrukcja importu postaci do Path of Building.
+- **Pilnuj tanich ulepszeń** (0.5.0) – włącz w zakładce Postać: co 15+ minut program sprawdza 3 najsłabsze sloty i wysyła powiadomienie (system + Discord, jeśli ustawiony), gdy znajdzie ulepszenie w Twoim budżecie. Każda oferta jest zgłaszana tylko raz. Działa, gdy aplikacja jest uruchomiona (Start).
+- **Pomoc w budowie postaci** – sprawdza linki głównego skilla (5L/6L), poziom i jakość gemów, support gemy w niepołączonych gniazdach, brak skilla ruchu / guard skilla / aur oraz flaszki (krwawienie, zamrożenie, Quicksilver). Do tego link do buildów Twojej klasy na poe.ninja i instrukcja importu do Path of Building.
+- **Essence w doradcy craftu** (0.5.0) – na białych bazach zbroi i biżuterii program podpowiada Deafening Essence (życie, odporności), z ceną essence z poe.ninja i szacowaną ceną przedmiotu po crafcie.
 - **Zakładka Challenge** – wklej listę challenge'y ligi (jedna w linii), odhaczaj zrobione, ustaw kolejność, dopisz notatki. Program podpowiada, co przygotować (mapy, fragmenty bossów, Heist, crafting…). Lista jest zapisywana osobno dla każdej ligi.
 
 ## Plany na przyszłość
 
-- **Doradca craftu – rozbudowa** – essence, harvest, meta-crafty i wiele kroków craftu naraz.
-- **Budowa postaci – dalej** – analiza drzewka i gemów, porównanie z popularnymi buildami ligi.
-- **Ulepszenia na bieżąco** – automatyczne sprawdzanie ekwipunku co jakiś czas i powiadomienie, gdy pojawi się tanie ulepszenie.
+- **Doradca craftu – dalej** – harvest, meta-crafty i wiele kroków craftu naraz.
+- **Budowa postaci – dalej** – analiza drzewka pasywnego i porównanie z popularnymi buildami ligi (wymaga danych, których publiczne API nie udostępnia w prosty sposób).
 
 ## Struktura
 

@@ -24,6 +24,9 @@ export interface PricerApi {
   getChallenges(): Promise<import('../core/hub/challenges').Challenge[]>;
   saveChallenges(list: import('../core/hub/challenges').Challenge[]): Promise<import('../core/hub/challenges').Challenge[]>;
   upgradeSearch(slot: string): Promise<UpgradeResult>;
+  getUpgradeWatch(): Promise<import('./types').UpgradeWatchState>;
+  saveUpgradeWatch(s: import('./types').UpgradeWatchSettings): Promise<import('./types').UpgradeWatchState>;
+  runUpgradeWatch(): Promise<import('./types').UpgradeWatchState>;
   /** Prices an item from text copied in game with Ctrl+C. */
   checkText(text: string): Promise<PriceCheck>;
   getChecks(): Promise<PriceCheck[]>;

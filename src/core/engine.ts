@@ -152,7 +152,7 @@ export class PricingEngine {
 
   /** Chaos value of a trade currency code (chaos, divine, exalted, aug, regal…), null when unknown. */
   chaosRate(code: string): number | null {
-    return this.chaosRates.get(code) ?? null;
+    return this.chaosRates.get(code) ?? this.index.valueOf(code);
   }
 
   /**
