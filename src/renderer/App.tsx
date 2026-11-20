@@ -6,6 +6,8 @@ import { ProfileForm } from './components/ProfileForm';
 import { ItemCard } from './components/ItemCard';
 import { ItemDetails } from './components/ItemDetails';
 import { StashView } from './components/StashView';
+import { CharacterView } from './components/CharacterView';
+import { GroupsView } from './components/GroupsView';
 import { formatPrice } from './format';
 import { isBelowMin } from '../core/config';
 
@@ -25,8 +27,11 @@ export function App() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState<'list' | 'stash'>(() => {
-    try { return localStorage.getItem('pricer-view') === 'stash' ? 'stash' : 'list'; } catch { return 'list'; }
+  const [view, setView] = useState<'list' | 'stash' | 'groups' | 'character'>(() => {
+    try {
+      const v = localStorage.getItem('pricer-view');
+      return v === 'stash' || v === 'groups' || v === 'character' ? v : 'list';
+    } catch { return 'list'; }
   });
   useEffect(() => {
     try { localStorage.setItem('pricer-view', view); } catch { /* ignore */ }
@@ -198,6 +203,8 @@ export function App() {
         <div className="seg view-switch">
           <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>Lista</button>
           <button className={view === 'stash' ? 'on' : ''} onClick={() => setView('stash')}>Zakładki</button>
+          <button className={view === 'groups' ? 'on' : ''} onClick={() => setView('groups')}>Kategorie</button>
+          <button className={view === 'character' ? 'on' : ''} onClick={() => setView('character')}>Postać</button>
         </div>
         <span className="spacer" />
         <div className="threshold" title="Przedmioty warte mniej niż ta kwota (albo bez ceny) są oznaczane jako tanie">
@@ -225,7 +232,11 @@ export function App() {
       </section>
 
       <main className="content">
-        {view === 'stash' && items.length > 0 ? (
+        {view === 'character' ? (
+          <CharacterView currency={currency} divine={divine} selectedId={selected?.item.id ?? null} onSelect={setSelected} />
+        ) : view === 'groups' && visible.length > 0 ? (
+          <GroupsView items={visible} currency={currency} divine={divine} minValue={minValue} selectedId={selected?.item.id ?? null} onSelect={setSelected} />
+        ) : view === 'stash' && items.length > 0 ? (
           <StashView items={hideBelow ? visible : items} currency={currency} divine={divine} minValue={minValue} selectedId={selected?.item.id ?? null} onSelect={setSelected} />
         ) : visible.length === 0 ? (
           <div className="empty">
@@ -255,7 +266,7 @@ export function App() {
             ))}
           </div>
         )}
-        {selected && <ItemDetails data={selected} currency={currency} divine={divine} onClose={() => setSelected(null)} />}
+        {selected && <ItemDetails data={selected} currency={currency} divine={divine} minValue={minValue} onClose={() => setSelected(null)} />}
       </main>
 
       <footer className="footer">This product isn't affiliated with or endorsed by Grinding Gear Games in any way.</footer>

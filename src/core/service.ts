@@ -19,7 +19,8 @@ import { discordPayload, sendDiscord } from './extras/discord';
 import { toCsv } from './extras/csv';
 import { craftReport, demoCraftPricer } from './craft/advisor';
 import { modWeight } from './pricing/tradeQuery';
-import type { CraftReport } from '../shared/types';
+import type { CharacterSummary, CharacterView, CraftReport, EquippedItem } from '../shared/types';
+import { buildCharacter, demoCharacter, demoCharacters, sortCharacters, toSummary } from './character';
 
 export type ServiceEvent =
   | { type: 'items'; payload: PricedItem[] }
@@ -35,6 +36,8 @@ export class PricerService {
   private profile: Profile | null = null;
   private repriceTimer: ReturnType<typeof setInterval> | null = null;
   private repricing = false;
+  /** Gear of the last opened character, so the craft advisor works on it too. */
+  private characterItems: EquippedItem[] = [];
   private engine: PricingEngine | null = null;
   private demo = false;
   private items: PricedItem[] = [];
@@ -242,7 +245,9 @@ export class PricerService {
 
   /** Doradca craftu for one item: free affixes, bench crafts priced on trade, random crafts with cost. */
   async craftAdvice(itemId: string): Promise<CraftReport> {
-    const found = this.items.find((p) => p.item.id === itemId);
+    const gear = this.characterItems.find((e) => e.item.id === itemId);
+    const found = this.items.find((p) => p.item.id === itemId)
+      ?? (gear ? { item: gear.item, price: gear.price ?? { itemId, source: 'none' as const, chaos: null, low: null, high: null, confidence: 'low' as const, sampleSize: 0, note: '' }, firstSeen: '' } : undefined);
     if (!found) throw new Error('Nie znaleziono przedmiotu.');
     const current = found.price.chaos;
     if (this.demo) {
@@ -254,6 +259,58 @@ export class PricerService {
     const report = await craftReport(found.item, current, { tradePrice: (it) => engine.tradePrice(it), chaosRate: (c) => engine.chaosRate(c), weight: modWeight });
     this.status('Doradca craftu: gotowe.');
     return report;
+  }
+
+  private activeProfile(): Profile {
+    const settings = this.getSettings();
+    const profile = settings.profiles.find((p) => p.id === settings.activeProfileId);
+    if (!profile) throw new Error('Brak aktywnego profilu – uzupełnij ustawienia.');
+    return profile;
+  }
+
+  private accountClient(profile: Profile): TradeClient {
+    if (this.trade && this.profile?.id === profile.id) return this.trade;
+    return new TradeClient(fetch, profile.accountName, profile.poesessid.trim() || undefined);
+  }
+
+  /** Characters of the account; the profile's league first. */
+  async listCharacters(): Promise<CharacterSummary[]> {
+    const profile = this.activeProfile();
+    if (this.demo) return demoCharacters();
+    const raw = await this.accountClient(profile).characters(profile.accountName, profile.realm);
+    return sortCharacters((Array.isArray(raw) ? raw : []).map(toSummary), this.league || profile.league);
+  }
+
+  /** Gear, gems, tree jewels and stats of one character; withPrices=true also prices every item. */
+  async character(name: string, withPrices = false): Promise<CharacterView> {
+    const profile = this.activeProfile();
+    let view: CharacterView;
+    if (this.demo) {
+      view = demoCharacter(name);
+    } else {
+      const client = this.accountClient(profile);
+      const items = await client.characterItems(profile.accountName, name, profile.realm);
+      let passives = null;
+      try { passives = await client.passives(profile.accountName, name, profile.realm); } catch { /* tree is optional */ }
+      view = buildCharacter(profile.accountName, profile.realm, items, passives);
+    }
+    if (withPrices) {
+      const all = [...view.items, ...view.jewels];
+      let i = 0;
+      for (const e of all) {
+        i++;
+        this.status(`Wyceniam ekwipunek ${i}/${all.length}: ${e.item.name || e.item.typeLine}…`);
+        if (this.demo) {
+          e.price = { itemId: e.item.id, source: 'trade', chaos: 20 + ((i * 37) % 160), low: null, high: null, confidence: 'medium', sampleSize: 6, note: 'demo' };
+          continue;
+        }
+        if (!this.engine) throw new Error('Najpierw kliknij Start – wycena ekwipunku korzysta z cen z trade i poe.ninja.');
+        try { e.price = await this.engine.price(e.item); } catch (err) { e.price = { itemId: e.item.id, source: 'none', chaos: null, low: null, high: null, confidence: 'low', sampleSize: 0, note: `Błąd wyceny: ${msg(err)}` }; }
+      }
+      this.status(`Wyceniono ekwipunek postaci ${name}.`);
+    }
+    this.characterItems = [...view.items, ...view.jewels];
+    return view;
   }
 
   /** Nothing visible in this league: look for the account's items in other leagues (once per start). */

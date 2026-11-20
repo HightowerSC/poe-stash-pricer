@@ -261,3 +261,43 @@ button:disabled { opacity: .45; cursor: default; }
 .craft-table th, .craft-table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,.06); vertical-align: top; }
 .craft-table tr.gain td:last-child { color: #7ee08a; font-weight: 600; }
 .craft-table a { color: inherit; }
+
+/* character tab */
+.character { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; }
+.char-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.char-head label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted, #9a917e); }
+.char-head select { min-width: 260px; }
+.char-head a.btn { text-decoration: none; color: inherit; display: inline-flex; align-items: center; }
+.char-body { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 12px; }
+@media (max-width: 900px) { .char-body { grid-template-columns: 1fr; } }
+.char-card { border: 1px solid rgba(200,166,90,.25); border-radius: 10px; padding: 14px; background: rgba(0,0,0,.18); }
+.char-title { font-size: 20px; color: #e2c27a; }
+.char-value { margin-top: 6px; }
+.doll { display: grid; gap: 6px; margin-top: 12px; grid-template-columns: repeat(4, 1fr);
+  grid-template-areas: "weapon helm helm offhand" "weapon body body offhand" "ring body body ring2" "gloves belt amulet boots"; }
+.doll-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.doll-row .doll-slot { width: 64px; min-height: 64px; }
+.doll-slot { position: relative; min-height: 72px; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 4px; color: inherit; }
+.doll-slot.active { outline: 2px solid #e2c27a; }
+.doll-slot img { max-width: 100%; max-height: 92px; object-fit: contain; }
+.doll-slot.unique { border-color: rgba(175,96,37,.6); }
+.doll-slot.rare { border-color: rgba(255,255,119,.35); }
+.doll-slot.magic { border-color: rgba(136,136,255,.4); }
+.doll-label { position: absolute; left: 4px; top: 2px; font-size: 10px; color: #9a917e; }
+.doll-name { font-size: 11px; text-align: center; }
+.doll-price { position: absolute; right: 3px; bottom: 3px; font-size: 11px; background: rgba(0,0,0,.75); color: #f1d38a; padding: 0 4px; border-radius: 3px; }
+.char-stats { width: 100%; border-collapse: collapse; font-size: 13px; }
+.char-stats td { padding: 3px 6px; border-bottom: 1px solid rgba(255,255,255,.05); }
+.char-stats td:last-child { text-align: right; font-weight: 600; }
+.char-stats tr.capped td:last-child { color: #7ee08a; }
+.char-stats tr.uncapped td:last-child { color: #e8a35a; }
+.char-gems { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+
+/* groups view */
+.groups { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; }
+.groups-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.groups-summary { display: flex; flex-wrap: wrap; gap: 6px; }
+.group-chip { border: 1px solid rgba(200,166,90,.3); background: rgba(0,0,0,.25); color: inherit; border-radius: 999px; padding: 4px 10px; cursor: pointer; font: inherit; font-size: 12px; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group-title { display: flex; gap: 10px; align-items: baseline; width: 100%; background: none; border: none; border-bottom: 1px solid rgba(200,166,90,.25); color: #e2c27a; font: inherit; font-size: 15px; padding: 6px 0; cursor: pointer; text-align: left; }
+.group-title .spacer { flex: 1; }

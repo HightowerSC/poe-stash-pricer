@@ -5,6 +5,7 @@ import { sessionSummary } from '../core/extras/history';
 import { toCsv } from '../core/extras/csv';
 import { upgradeProfile } from '../core/config';
 import { craftReport, demoCraftPricer } from '../core/craft/advisor';
+import { demoCharacter, demoCharacters } from '../core/character';
 
 /** Used when the UI runs in a normal browser (design preview, screenshots). */
 export function browserMockApi(): PricerApi {
@@ -46,6 +47,12 @@ export function browserMockApi(): PricerApi {
       return { league: 'Covens', divineRate: 180 };
     },
     async stop() {},
+    async listCharacters() { return demoCharacters(); },
+    async character(name, prices) {
+      const view = demoCharacter(name);
+      if (prices) [...view.items, ...view.jewels].forEach((e, i) => { e.price = { itemId: e.item.id, source: 'trade', chaos: 20 + ((i * 37) % 160), low: null, high: null, confidence: 'medium', sampleSize: 6, note: 'demo' }; });
+      return view;
+    },
     async reprice(ids) {
       items = items.map((p) => (!ids || ids.includes(p.item.id) ? { ...p, pricedAt: new Date().toISOString() } : p));
       itemListeners.forEach((l) => l(items));

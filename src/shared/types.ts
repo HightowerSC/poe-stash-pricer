@@ -196,3 +196,43 @@ export interface CraftReport {
   /** Why there is nothing to suggest. */
   reason?: string;
 }
+
+/** One character of the account, from the character list. */
+export interface CharacterSummary {
+  name: string;
+  league: string;
+  class: string;
+  level: number;
+}
+
+export interface CharacterStat {
+  label: string;
+  value: number;
+  /** e.g. "%", shown after the number. */
+  unit?: string;
+  /** Resistance values are compared against the 75% cap. */
+  kind?: 'res' | 'life' | 'defence' | 'offence' | 'attr' | 'other';
+}
+
+export interface EquippedItem {
+  /** GGG inventoryId: Helm, BodyArmour, Weapon, Offhand, Gloves, Boots, Amulet, Ring, Ring2, Belt, Flask, PassiveJewels. */
+  slot: string;
+  item: PoeItem;
+  /** Gems socketed in the item. */
+  gems: PoeItem[];
+  price?: PriceEstimate;
+}
+
+export interface CharacterView {
+  summary: CharacterSummary;
+  account: string;
+  items: EquippedItem[];
+  /** Jewels socketed in the passive tree. */
+  jewels: EquippedItem[];
+  passives: number;
+  masteries: number;
+  /** Totals added up from gear and jewels (no tree, auras or flasks). */
+  stats: CharacterStat[];
+  /** Link to the character on pathofexile.com. */
+  profileUrl: string;
+}

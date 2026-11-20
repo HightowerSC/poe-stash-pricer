@@ -7,6 +7,7 @@ import { trend } from '../../core/extras/history';
 import { CONFIDENCE_LABEL, displayName, formatPrice, rarityClass } from '../format';
 import { Sparkline, TrendBadge } from './Sparkline';
 import { positionLabel } from '../../core/stashLayout';
+import { suggestedTab } from '../../core/extras/groups';
 import type { ItemLocation } from '../../shared/types';
 
 /** Tiny 12×12 (or 24×24) map with the item's cells highlighted. */
@@ -28,10 +29,11 @@ interface Props {
   data: PricedItem;
   currency: 'chaos' | 'divine';
   divine: number | null;
+  minValue?: number;
   onClose(): void;
 }
 
-export function ItemDetails({ data, currency, divine, onClose }: Props) {
+export function ItemDetails({ data, currency, divine, minValue, onClose }: Props) {
   const { item, price, advice } = data;
   const { title, subtitle } = displayName(item);
   const tiers = modTiers(item);
@@ -97,6 +99,7 @@ export function ItemDetails({ data, currency, divine, onClose }: Props) {
           <div>
             <div className="advice-title">Gdzie leży</div>
             <div className="small">{positionLabel(data.location)}</div>
+            <div className="small muted">Pasuje do zakładki: „{suggestedTab(data, minValue ?? 0)}”</div>
             {data.present === false && <div className="small error-text">Przedmiotu nie ma już w publicznej zakładce.</div>}
           </div>
         </div>
@@ -178,6 +181,7 @@ export function ItemDetails({ data, currency, divine, onClose }: Props) {
       ) : null}
 
       <div className="links">
+        {data.location && <button className="btn ghost" onClick={() => void window.pricer.reprice([item.id]).catch(() => undefined)} title="Wycenia ten przedmiot ponownie według aktualnego rynku">↻ Przelicz</button>}
         {price.tradeUrl && <button className="btn primary" onClick={() => window.pricer.openExternal(price.tradeUrl!)}>Otwórz na trade</button>}
         <button className="btn ghost" onClick={() => window.pricer.openExternal(`https://poedb.tw/us/search?q=${encodeURIComponent(item.name || item.baseType)}`)}>poedb</button>
         <button className="btn ghost" onClick={() => window.pricer.openExternal('https://www.craftofexile.com/')}>Craft of Exile</button>
