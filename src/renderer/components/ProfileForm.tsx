@@ -195,6 +195,18 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
         </div>
         <span className="hint">Powiadomienia (według ustawienia wyżej) także na Twój kanał. Discord → Ustawienia kanału → Integracje → Webhooki.</span>
       </label>
+      <fieldset className="notify-settings">
+        <legend>Czego nie wyceniać ze skrzyni</legend>
+        <label className="check wide">
+          <input type="checkbox" checked={p.skipCurrency} onChange={(e) => set('skipCurrency', e.target.checked)} />
+          Nie wyceniaj orbów (waluty: orby, esencje, fossile itp.)
+        </label>
+        <label className="check wide">
+          <input type="checkbox" checked={p.skipUniques} onChange={(e) => set('skipUniques', e.target.checked)} />
+          Nie wyceniaj unikatów
+        </label>
+        <span className="hint">Pominięte przedmioty nie są wyceniane (mniej zapytań do trade), nie liczą się do sumy, powiadomień ani nakładki. Ctrl+C w grze nadal je wyceni.</span>
+      </fieldset>
       <label className="check wide">
         <input type="checkbox" checked={p.usePoeprices} onChange={(e) => set('usePoeprices', e.target.checked)} />
         Druga opinia z poeprices.info dla przedmiotów rare (wolniejsze, serwis bywa niedostępny)

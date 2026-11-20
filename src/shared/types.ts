@@ -50,6 +50,10 @@ export interface Profile {
   poesessid: string;
   /** Re-price items older than this many hours automatically. 0 = off. */
   repriceHours: number;
+  /** Do not price currency (orbs, essences, fossils…) from the stash – saves trade/poe.ninja requests. Ctrl+C still prices them. */
+  skipCurrency: boolean;
+  /** Do not price unique items from the stash. Ctrl+C still prices them. */
+  skipUniques: boolean;
 }
 
 export interface AppSettings {

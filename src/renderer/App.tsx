@@ -312,6 +312,14 @@ export function App() {
                   <input type="checkbox" checked={hideBelow} onChange={(e) => void updateProfile({ hideBelowMin: e.target.checked })} />
                   ukryj tanie{belowCount ? ` (${belowCount})` : ''}
                 </label>
+                <label className="check-inline" title="Orby i inne waluty ze skrzyni nie są wyceniane (Ctrl+C nadal działa)">
+                  <input type="checkbox" checked={profile?.skipCurrency ?? false} onChange={(e) => void updateProfile({ skipCurrency: e.target.checked })} />
+                  bez orbów
+                </label>
+                <label className="check-inline" title="Unikaty ze skrzyni nie są wyceniane (Ctrl+C nadal działa)">
+                  <input type="checkbox" checked={profile?.skipUniques ?? false} onChange={(e) => void updateProfile({ skipUniques: e.target.checked })} />
+                  bez unikatów
+                </label>
               </div>
             </section>
           </>

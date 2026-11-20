@@ -37,6 +37,7 @@ import { decodePob, parsePobXml, pobRawUrl, type PobItem } from './hub/pob';
 import type { PoeItem, ShoppingList, ShoppingRow } from '../shared/types';
 import { buildCharacter, demoCharacter, demoCharacters, sortCharacters, toSummary } from './character';
 import { applyTradeMode, tradeGate, withTradePriority, type TradeLimitStatus } from './tradeLimiter';
+import { isSkipped, type SkipPrefs } from './pricing/skip';
 
 export type ServiceEvent =
   | { type: 'checks'; payload: PriceCheck[] }
@@ -102,6 +103,8 @@ export class PricerService {
   private sessionStart = new Date().toISOString();
   private ninja = new NinjaClient(fetch);
   private listeners = new Set<(e: ServiceEvent) => void>();
+  /** Item kinds not priced from the stash; updated as soon as the settings are saved. */
+  private skip: SkipPrefs | null = null;
 
   constructor(private readonly dataDir: string) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -144,6 +147,29 @@ export class PricerService {
     this.writeJson('settings.json', { ...s, profiles: s.profiles.map(upgradeProfile) });
     try { applyTradeMode(this.activeProfile().tradeMode); } catch { /* no active profile */ }
     this.scheduleUpgradeWatch();
+    this.applySkip();
+  }
+
+  /**
+   * Applies the "don't price currency / uniques" options at once: matching items leave the list, the totals and
+   * the overlay, and are forgotten, so turning the option off prices them again on the next check.
+   */
+  private applySkip() {
+    let profile: Profile;
+    try { profile = this.activeProfile(); } catch { return; }
+    if (this.profile && profile.id !== this.profile.id) return; // another profile is chosen; it applies on Start
+    const before = this.skip;
+    this.skip = { skipCurrency: profile.skipCurrency, skipUniques: profile.skipUniques };
+    if (before && before.skipCurrency === this.skip.skipCurrency && before.skipUniques === this.skip.skipUniques) return;
+    if (this.demo || !this.league) return;
+    const removed = this.items.filter((p) => isSkipped(p.item, this.skip));
+    if (!removed.length) return;
+    const gone = new Set(removed.map((p) => p.item.id));
+    this.items = this.items.filter((p) => !gone.has(p.item.id));
+    this.watcher?.forget([...gone]);
+    this.writeJson(`items-${safe(this.league)}.json`, { seen: this.watcher?.seenIds ?? [], items: this.items });
+    this.pushState();
+    this.status(`Ukryto ${removed.length} przedmiotów, których nie wyceniasz (ustawienie: orby/unikaty).`);
   }
 
   async listLeagues(): Promise<League[]> {
@@ -285,7 +311,9 @@ export class PricerService {
       this.status(`Nie udało się pobrać modów z trade: ${msg(e)}. Rare będą wyceniane dopiero po ponownym starcie.`, true);
     }
     const store = this.readJson<{ seen: string[]; items: PricedItem[] }>(`items-${safe(this.league)}.json`, { seen: [], items: [] });
-    this.items = store.items;
+    this.skip = { skipCurrency: profile.skipCurrency, skipUniques: profile.skipUniques };
+    // Items of kinds the user chose not to price stay out of the list and are not remembered as seen.
+    this.items = store.items.filter((p) => !isSkipped(p.item, this.skip));
     this.history = this.readJson<HistoryStore>(`history-${safe(this.league)}.json`, emptyHistory());
     this.pushState();
 
@@ -339,6 +367,7 @@ export class PricerService {
       },
       onStatus: (text) => this.emit({ type: 'status', payload: { text } }),
       onError: (text) => this.emit({ type: 'status', payload: { text, error: true } }),
+      shouldSkip: (item) => isSkipped(item, self.skip),
     }, store.seen.filter((id) => pricedIds.has(id)));
     this.watcher.start();
     this.startAutoReprice(profile);
@@ -823,7 +852,7 @@ export class PricerService {
     if (!engine || !this.profile) throw new Error('Najpierw kliknij Start – przeliczanie korzysta z cen z trade i poe.ninja.');
     if (this.repricing) throw new Error('Przeliczanie już trwa.');
     const profile = this.profile;
-    const all = this.items.filter((p) => p.present !== false && (!ids || ids.includes(p.item.id)));
+    const all = this.items.filter((p) => p.present !== false && (!ids || ids.includes(p.item.id)) && !isSkipped(p.item, this.skip));
     // "Przelicz" for everything skips items that would only cost trade requests for nothing (see worthRepricing).
     const targets = ids ? all : all.filter((p) => worthRepricing(p, profile));
     const skipped = all.length - targets.length;
@@ -872,7 +901,7 @@ export class PricerService {
       if (!engine || this.repricing) return;
       const limit = Date.now() - profile.repriceHours * 3_600_000;
       const stale = this.items
-        .filter((p) => p.present !== false && Date.parse(p.pricedAt ?? p.firstSeen) < limit && worthRepricing(p, profile))
+        .filter((p) => p.present !== false && Date.parse(p.pricedAt ?? p.firstSeen) < limit && worthRepricing(p, profile) && !isSkipped(p.item, this.skip))
         .sort((a, b) => (b.price.chaos ?? 0) - (a.price.chaos ?? 0))
         .slice(0, profile.tradeMode === 'normal' ? 10 : 5);
       if (stale.length) void withTradePriority('background', () => this.repriceItems(stale, engine, profile));

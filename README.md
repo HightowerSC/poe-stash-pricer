@@ -20,6 +20,7 @@ Po lewej jest menu z widokami w trzech grupach: **Przedmioty** (Lista, Zakładki
 - **Powiadomienia** (0.9.0, ⚙ Ustawienia → Powiadomienia albo ikona w zasobniku) – trzy tryby: *Wyłączone* (nic: ani system, ani Discord, ani pilnowanie ulepszeń), *Tylko wartościowe* (próg w chaos lub divine) i *Wszystkie*. Zmiana działa od razu, bez restartu skanowania.
 - **Sesja** – wartość w czasie, chaos na godzinę, najlepszy drop; „Nowa sesja” zeruje licznik.
 - **poeprices.info** – opcjonalna druga opinia dla rare.
+- **Bez orbów / bez unikatów** (od 0.15.0) – dwa przełączniki nad listą i w ⚙ Ustawieniach. Zaznaczone rodzaje przedmiotów ze skrzyni nie są wyceniane (mniej zapytań do trade), nie liczą się do sumy, powiadomień ani nakładki. Po odznaczeniu wycenią się przy kolejnym sprawdzeniu. Ctrl+C w grze wycenia je zawsze.
 - **Tiery modów** (T1, T2…) na podstawie danych z trade.
 - **Minimalna wartość** – przedmioty tańsze od wpisanego progu (i bez ceny) są wyszarzone z etykietą; można je też ukryć.
 - **Eksport CSV** gotowy do Excela (średniki, przecinek dziesiętny).
@@ -93,6 +94,7 @@ Jeśli coś nie działa, pasek stanu pod kafelkami podaje przyczynę (np. nieakt
 - Twoje przedmioty pochodzą z Twojej skrzyni (serwer GGG, POESESSID) albo z Ctrl+C. Trade służy wyłącznie do porównania z ofertami innych graczy.
 - Szanuje limity: User-Agent z kontaktem, max 2 równoległe zapytania do poe.ninja. Gdzie wystarcza poe.ninja (waluta, karty, gemy, mapy, większość unikatów), trade nie jest pytany wcale.
 - **Limit zapytań trade (od 0.12.0):** wszystkie zapytania do pathofexile.com (wycena Ctrl+C, skrzynia, przeliczanie, ulepszenia i ich pilnowanie, flip, doradca craftu, lista zakupów z PoB, postać) idą przez jedną wspólną kolejkę. Kolejka czyta limity z nagłówków `X-Rate-Limit-*` (osobno wyszukiwanie, pobieranie ofert, wymiana walut), zostawia zapas na Twoją przeglądarkę, przy 429 czeka tyle, ile każe `Retry-After`, a wycena Ctrl+C zawsze idzie przed zadaniami w tle. Takie same zapytania z ostatnich minut są brane z pamięci. Gdy aplikacja czeka, na pasku stanu widać „⏳ czekam na limit trade, X s”.
+- **Tryb oszczędny (od 0.16.0, domyślny):** ⚙ Ustawienia → „Zapytania do trade”. Oszczędny: rare idą do trade tylko z co najmniej 2 dobrymi modami, najwyżej 2 wyszukiwania i 1 pobranie ofert na przedmiot, wyniki pamiętane 30 min, połowa limitu GGG, skrzynia czytana najczęściej co 10 min, pilnowanie ulepszeń najczęściej co 60 min, a „Przelicz” pomija przedmioty wycenione z trade w ostatniej dobie i tańsze niż minimalna wartość (ceny z poe.ninja przelicza zawsze, bo nic nie kosztują). Normalny: szybciej i dokładniej, więcej zapytań. Na pasku stanu licznik „trade: N zapytań/h”.
 
 ## PoE HUB (od wersji 0.4.0, rozbudowany w 0.5.0)
 

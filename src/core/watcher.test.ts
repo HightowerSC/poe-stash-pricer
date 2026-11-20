@@ -22,7 +22,7 @@ function fakeSource(ids: string[], tabOf: (id: string) => string, watchedTab: st
   };
 }
 
-function setup(ids: string[], tabOf: (id: string) => string, watchedTab = '') {
+function setup(ids: string[], tabOf: (id: string) => string, watchedTab = '', shouldSkip?: (item: any) => boolean) {
   const engine: any = {
     refreshPrices: async () => 0,
     price: async (item: any) => ({ itemId: item.id, source: 'poe.ninja', chaos: 1, low: 1, high: 1, confidence: 'high', sampleSize: 1, note: '' }),
@@ -34,11 +34,32 @@ function setup(ids: string[], tabOf: (id: string) => string, watchedTab = '') {
     onItems: (i) => got.push(...i),
     onStatus: (s) => statuses.push(s),
     onError: (s) => statuses.push(`ERR ${s}`),
+    shouldSkip,
   });
   return { w, got, statuses };
 }
 
 describe('StashWatcher', () => {
+  it('leaves skipped kinds unpriced and prices them once the option is off', async () => {
+    let skip = true;
+    const { w, got, statuses } = setup(['a', 'b'], () => 'Inbox', '', (item) => skip && item.id === 'a');
+    await w.tick();
+    expect(got.map((g) => g.item.id)).toEqual(['b']);
+    expect(statuses.at(-1)).toContain('niewyceniane wg ustawień');
+    skip = false;
+    await w.tick();
+    w.stop();
+    expect(got.map((g) => g.item.id)).toEqual(['b', 'a']);
+  });
+
+  it('skipped items do not use up the batch', async () => {
+    const ids = [...Array.from({ length: 25 }, (_, i) => `s${i}`), 'x'];
+    const { w, got } = setup(ids, () => 'Inbox', '', (item) => item.id.startsWith('s'));
+    await w.tick();
+    w.stop();
+    expect(got.map((g) => g.item.id)).toEqual(['x']);
+  });
+
   it('prices items already in the public tab on the first check', async () => {
     const { w, got } = setup(['a', 'b', 'c'], () => 'Inbox');
     await w.tick();
