@@ -24,6 +24,8 @@ export function newProfile(partial: Partial<Profile> = {}): Profile {
     stashSource: partial.stashSource === 'session' || (partial.stashSource === undefined || (partial.stashSource as string) === 'public') && !!partial.poesessid ? 'session' : 'none',
     poesessid: partial.poesessid ?? '',
     repriceHours: Math.max(0, partial.repriceHours ?? 0),
+    skipCurrency: partial.skipCurrency === true,
+    skipUniques: partial.skipUniques === true,
   };
 }
 

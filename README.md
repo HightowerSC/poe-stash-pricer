@@ -20,6 +20,7 @@ Po lewej jest menu z widokami w trzech grupach: **Przedmioty** (Lista, Zakładki
 - **Powiadomienia** (0.9.0, ⚙ Ustawienia → Powiadomienia albo ikona w zasobniku) – trzy tryby: *Wyłączone* (nic: ani system, ani Discord, ani pilnowanie ulepszeń), *Tylko wartościowe* (próg w chaos lub divine) i *Wszystkie*. Zmiana działa od razu, bez restartu skanowania.
 - **Sesja** – wartość w czasie, chaos na godzinę, najlepszy drop; „Nowa sesja” zeruje licznik.
 - **poeprices.info** – opcjonalna druga opinia dla rare.
+- **Bez orbów / bez unikatów** (od 0.15.0) – dwa przełączniki nad listą i w ⚙ Ustawieniach. Zaznaczone rodzaje przedmiotów ze skrzyni nie są wyceniane (mniej zapytań do trade), nie liczą się do sumy, powiadomień ani nakładki. Po odznaczeniu wycenią się przy kolejnym sprawdzeniu. Ctrl+C w grze wycenia je zawsze.
 - **Tiery modów** (T1, T2…) na podstawie danych z trade.
 - **Minimalna wartość** – przedmioty tańsze od wpisanego progu (i bez ceny) są wyszarzone z etykietą; można je też ukryć.
 - **Eksport CSV** gotowy do Excela (średniki, przecinek dziesiętny).
