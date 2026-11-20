@@ -25,6 +25,8 @@ import { parseItemText } from './itemText';
 import { normalizeItem } from './normalize';
 import { diagnose, upgradeQuery } from './hub/upgrades';
 import type { Challenge } from './hub/challenges';
+import { bundledCatalog, fetchCatalog, mergeCatalog, type ChallengeCatalog } from './hub/challengeSource';
+import type { ChallengeSync } from '../shared/api';
 import type { UpgradeResult, UpgradeWatchSettings, UpgradeWatchState } from '../shared/types';
 import { newFinds, normalizeWatch } from './hub/watch';
 import { BACKUP_FILE, makeBackup, restoreBackup, type Backup } from './extras/backup';
@@ -43,6 +45,18 @@ export type ServiceEvent =
   | { type: 'status'; payload: { text: string; error?: boolean } }
   | { type: 'notify'; payload: { title: string; body: string } }
   | { type: 'tradeLimit'; payload: TradeLimitStatus };
+
+function cleanChallenges(list: Challenge[]): Challenge[] {
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+  return (Array.isArray(list) ? list : []).slice(0, 500).map((c): Challenge => ({
+    id: String(c.id ?? Math.random().toString(36).slice(2, 10)), title: String(c.title ?? '').slice(0, 300), done: !!c.done, notes: String(c.notes ?? '').slice(0, 2000),
+    ...(c.desc ? { desc: String(c.desc).slice(0, 1000) } : {}),
+    ...(Array.isArray(c.steps) && c.steps.length ? { steps: c.steps.slice(0, 40).map((x) => String(x).slice(0, 300)) } : {}),
+    ...(n(c.current) !== undefined ? { current: n(c.current) } : {}),
+    ...(n(c.total) !== undefined ? { total: n(c.total) } : {}),
+    ...(c.source && ['official', 'poedb', 'bundled'].includes(c.source) ? { source: c.source } : {}),
+  })).filter((c) => c.title);
+}
 
 const safe = (league: string) => league.replace(/[^\w-]/g, '_');
 
@@ -383,21 +397,76 @@ export class PricerService {
   // ---------- PoE HUB ----------
 
   /** The player's challenge list for the current (or profile) league. */
-  getChallenges(): Challenge[] {
-    return this.readJson<Challenge[]>(`challenges-${safe(this.hubLeague())}.json`, []);
+  async getChallenges(): Promise<Challenge[]> {
+    return this.readChallenges(await this.hubLeagueResolved());
   }
 
-  saveChallenges(list: Challenge[]): Challenge[] {
-    const clean = (Array.isArray(list) ? list : []).slice(0, 500).map((c) => ({
-      id: String(c.id ?? Math.random().toString(36).slice(2, 10)), title: String(c.title ?? '').slice(0, 300), done: !!c.done, notes: String(c.notes ?? '').slice(0, 2000),
-    })).filter((c) => c.title);
-    this.writeJson(`challenges-${safe(this.hubLeague())}.json`, clean);
+  async saveChallenges(list: Challenge[]): Promise<Challenge[]> {
+    const league = await this.hubLeagueResolved();
+    const clean = cleanChallenges(list);
+    this.writeJson(`challenges-${safe(league)}.json`, clean);
     return clean;
+  }
+
+  /**
+   * Fetches the league's challenge list (pathofexile.com with progress → poedb.tw → bundled list),
+   * caches it per league and merges it into the saved list. Without `force` a fresh cache is reused.
+   */
+  async syncChallenges(force = false): Promise<ChallengeSync> {
+    const league = await this.hubLeagueResolved();
+    const cacheName = `challenge-catalog-${safe(league)}.json`;
+    let cat = this.readJson<ChallengeCatalog | null>(cacheName, null);
+    let error: string | undefined;
+    const age = cat ? Date.now() - Date.parse(cat.fetchedAt) : Infinity;
+    // the official page carries progress, so it is refreshed more often than the bare list
+    const maxAge = cat?.source === 'official' ? 30 * 60_000 : cat?.source === 'poedb' ? 12 * 3600_000 : 3600_000;
+    if (force || !cat || cat.league !== league || age > maxAge) {
+      try {
+        if (this.demo) {
+          const items = bundledCatalog('Covens') ?? [];
+          cat = { league, source: 'bundled', fetchedAt: new Date().toISOString(), items, notes: ['tryb demo'] };
+        } else {
+          let p: Profile | null = null;
+          try { p = this.activeProfile(); } catch { /* no profile yet */ }
+          cat = await fetchCatalog(fetch, { league, account: p?.accountName ?? '', realm: p?.realm ?? 'pc', poesessid: p?.poesessid.trim() || undefined,
+            gate: (url, send) => tradeGate.request(url, send) });
+        }
+        this.writeJson(cacheName, cat);
+      } catch (e) {
+        error = msg(e);
+      }
+    }
+    let list = this.readChallenges(league);
+    if (cat && cat.league === league) {
+      list = cleanChallenges(mergeCatalog(list, cat));
+      this.writeJson(`challenges-${safe(league)}.json`, list);
+    }
+    return {
+      list, league, error,
+      source: cat?.league === league ? cat.source : null,
+      fetchedAt: cat?.league === league ? cat.fetchedAt : null,
+      notes: cat?.league === league ? cat.notes : [],
+    };
+  }
+
+  private readChallenges(league: string): Challenge[] {
+    const own = this.readJson<Challenge[] | null>(`challenges-${safe(league)}.json`, null);
+    // lists saved before the league was resolved were stored as "auto"
+    return own ?? this.readJson<Challenge[]>('challenges-auto.json', []);
   }
 
   private hubLeague(): string {
     if (this.league) return this.league;
     try { const p = this.activeProfile(); return p.league === 'auto' ? 'auto' : p.league; } catch { return 'auto'; }
+  }
+
+  /** hubLeague with "auto" turned into the current challenge league (league list from poe.ninja). */
+  private async hubLeagueResolved(): Promise<string> {
+    const l = this.hubLeague();
+    if (l !== 'auto') return l;
+    let hardcore = false;
+    try { hardcore = this.activeProfile().hardcore; } catch { /* default softcore */ }
+    try { return resolveLeague('auto', hardcore, await this.ninja.leagues()); } catch { return 'auto'; }
   }
 
   /** Trade offers that would upgrade one slot of the last opened character (cheapest first). */
