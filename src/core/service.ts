@@ -21,6 +21,10 @@ import { craftReport, demoCraftPricer } from './craft/advisor';
 import { modWeight } from './pricing/tradeQuery';
 import type { CharacterSummary, CharacterView, CraftReport, EquippedItem, PriceCheck } from '../shared/types';
 import { parseItemText } from './itemText';
+import { normalizeItem } from './normalize';
+import { diagnose, upgradeQuery } from './hub/upgrades';
+import type { Challenge } from './hub/challenges';
+import type { UpgradeResult } from '../shared/types';
 import { buildCharacter, demoCharacter, demoCharacters, sortCharacters, toSummary } from './character';
 
 export type ServiceEvent =
@@ -38,6 +42,7 @@ export class PricerService {
   private profile: Profile | null = null;
   private repriceTimer: ReturnType<typeof setInterval> | null = null;
   private repricing = false;
+  private lastCharacter: CharacterView | null = null;
   /** Last items priced from Ctrl+C / pasted text, newest first. */
   private checks: PriceCheck[] = [];
   /** Gear of the last opened character, so the craft advisor works on it too. */
@@ -350,7 +355,57 @@ export class PricerService {
       this.status(`Wyceniono ekwipunek postaci ${name}.`);
     }
     this.characterItems = [...view.items, ...view.jewels];
+    this.lastCharacter = view;
     return view;
+  }
+
+  // ---------- PoE HUB ----------
+
+  /** The player's challenge list for the current (or profile) league. */
+  getChallenges(): Challenge[] {
+    return this.readJson<Challenge[]>(`challenges-${safe(this.hubLeague())}.json`, []);
+  }
+
+  saveChallenges(list: Challenge[]): Challenge[] {
+    const clean = (Array.isArray(list) ? list : []).slice(0, 500).map((c) => ({
+      id: String(c.id ?? Math.random().toString(36).slice(2, 10)), title: String(c.title ?? '').slice(0, 300), done: !!c.done, notes: String(c.notes ?? '').slice(0, 2000),
+    })).filter((c) => c.title);
+    this.writeJson(`challenges-${safe(this.hubLeague())}.json`, clean);
+    return clean;
+  }
+
+  private hubLeague(): string {
+    if (this.league) return this.league;
+    try { const p = this.activeProfile(); return p.league === 'auto' ? 'auto' : p.league; } catch { return 'auto'; }
+  }
+
+  /** Trade offers that would upgrade one slot of the last opened character (cheapest first). */
+  async upgradeSearch(slot: string): Promise<UpgradeResult> {
+    const view = this.lastCharacter;
+    if (!view) throw new Error('Najpierw otwórz postać w zakładce Postać.');
+    const e = view.items.find((x) => x.slot === slot);
+    if (!e) throw new Error('Ta postać nie ma przedmiotu w tym slocie.');
+    const d = diagnose(view);
+    const q = upgradeQuery(e, d.deficits);
+    if (!q) throw new Error('Dla tego slotu nie szukam ulepszeń.');
+    if (this.demo) {
+      return { slot, wants: q.wants, total: 42, tradeUrl: 'https://www.pathofexile.com/trade', offers: [35, 48, 60, 75, 90].map((c, i) => ({ chaos: c, amount: c, currency: 'chaos', name: `Demo ${i + 1}`, mods: q.wants })) };
+    }
+    if (!this.engine) await this.start(false);
+    const engine = this.engine;
+    const trade = this.trade;
+    if (!engine || !trade) throw new Error('Nie udało się uruchomić wyceny.');
+    const league = this.league;
+    const profile = this.activeProfile();
+    const res = await trade.search(league, q.query, profile.realm);
+    const listings = res.result.length ? await trade.fetch(res.result.slice(0, 10), res.id) : [];
+    const offers = listings.map((l: any) => {
+      const pr = l?.listing?.price ?? {};
+      const rate = pr.currency === 'chaos' ? 1 : engine.chaosRate(pr.currency);
+      const it = normalizeItem(l.item);
+      return { chaos: rate == null ? null : Math.round(pr.amount * rate), amount: pr.amount, currency: pr.currency, name: it.name ? `${it.name}, ${it.typeLine}` : it.typeLine, mods: [...(it.implicitMods ?? []), ...(it.explicitMods ?? []), ...(it.craftedMods ?? [])] };
+    }).filter((o: { amount?: number }) => o.amount);
+    return { slot, wants: q.wants, total: res.total, offers, tradeUrl: trade.tradeUrl(league, res.id, profile.realm) };
   }
 
   getChecks(): PriceCheck[] {

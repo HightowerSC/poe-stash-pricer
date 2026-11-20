@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CharacterSummary, CharacterView as View, EquippedItem, PricedItem } from '../../shared/types';
 import { displayName, formatPrice, rarityClass } from '../format';
+import { HubPanel } from './HubPanel';
 
 interface Props {
   currency: 'chaos' | 'divine';
@@ -155,6 +156,7 @@ export function CharacterView({ currency, divine, selectedId, onSelect }: Props)
               {!view.items.some((e) => e.gems.length) && <span className="muted small">Brak gemów w ekwipunku.</span>}
             </div>
           </section>
+          <HubPanel view={view} slotLabel={SLOT_LABEL} currency={currency} divine={divine} />
         </div>
       )}
       {!view && !busy && !error && list?.length === 0 && <p className="muted">Na tym koncie nie ma postaci albo profil jest prywatny.</p>}

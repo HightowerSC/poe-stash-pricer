@@ -51,6 +51,16 @@ export function browserMockApi(): PricerApi {
       return { league: 'Covens', divineRate: 180 };
     },
     async stop() {},
+    async getChallenges() {
+      try { return JSON.parse(localStorage.getItem('pricer-challenges') ?? '[]'); } catch { return []; }
+    },
+    async saveChallenges(list) {
+      try { localStorage.setItem('pricer-challenges', JSON.stringify(list)); } catch { /* ignore */ }
+      return list;
+    },
+    async upgradeSearch(slot) {
+      return { slot, wants: ['życie 70+', 'fire res 40%+'], total: 42, tradeUrl: 'https://www.pathofexile.com/trade', offers: [35, 48, 60].map((c, i) => ({ chaos: c, amount: c, currency: 'chaos', name: `Demo ${i + 1}`, mods: ['+75 to maximum Life', '+42% to Fire Resistance'] })) };
+    },
     async checkText(text) {
       const item = parseItemText(text);
       if (!item) throw new Error('To nie wygląda na przedmiot z PoE.');

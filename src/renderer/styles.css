@@ -331,3 +331,32 @@ button:disabled { opacity: .45; cursor: default; }
 .check-box { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid rgba(200,166,90,.3); border-radius: 10px; background: rgba(0,0,0,.2); }
 .check-box p { margin: 4px 0 0; }
 .check-box textarea { width: 100%; box-sizing: border-box; resize: vertical; font: 12px/1.4 ui-monospace, monospace; background: rgba(0,0,0,.35); color: inherit; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 8px; }
+
+/* PoE HUB */
+.hub { grid-column: 1 / -1; }
+.hub h4 { margin: 14px 0 6px; color: #c8a65a; }
+.hub-issues, .hub-fixes, .hub-links { margin: 0; padding-left: 18px; line-height: 1.6; }
+.hub-issues .sev { font-size: 11px; padding: 1px 6px; border-radius: 6px; margin-right: 4px; background: rgba(255,255,255,.08); }
+.hub-issues .sev-high .sev { background: rgba(220,70,60,.35); }
+.hub-issues .sev-medium .sev { background: rgba(220,160,60,.3); }
+.hub-fixes code { background: rgba(255,255,255,.06); padding: 1px 4px; border-radius: 4px; }
+.hub-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+.hub-slot { border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 8px; }
+.hub-slot.weak { border-color: rgba(220,160,60,.5); }
+.hub-slot-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.hub-result ul { margin: 4px 0; padding-left: 18px; }
+.btn.small { padding: 2px 8px; font-size: 12px; }
+.challenges textarea { width: 100%; box-sizing: border-box; margin: 6px 0; resize: vertical; font: 13px/1.4 ui-monospace, monospace; background: rgba(0,0,0,.35); color: inherit; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 8px; }
+.challenges .inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.challenges label.check { display: flex; flex-direction: row; align-items: center; gap: 8px; color: var(--text); cursor: pointer; }
+.challenges label.check input { width: auto; margin: 0; }
+.hub a, .challenges a { color: var(--gold); }
+.progress { height: 8px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; margin: 6px 0; }
+.progress > div { height: 100%; background: #c8a65a; }
+.challenge-list { padding-left: 22px; }
+.challenge-list > li { margin: 8px 0; padding: 8px; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; }
+.challenge-list > li.done .challenge-title { text-decoration: line-through; opacity: .6; }
+.challenge-row { display: flex; align-items: center; gap: 4px; }
+.challenge-row .grow { flex: 1; }
+.challenge-hints { margin: 4px 0; padding-left: 18px; font-size: 13px; opacity: .85; list-style: none; }
+.challenge-notes { width: 100%; box-sizing: border-box; margin-top: 4px; }

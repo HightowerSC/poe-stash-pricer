@@ -1,6 +1,6 @@
 // The bridge exposed by the preload script as window.pricer.
 
-import type { AppSettings, PriceCheck, CharacterSummary, CharacterView, CraftReport, League, PricedItem, PricePoint, SessionSummary } from './types';
+import type { AppSettings, UpgradeResult, PriceCheck, CharacterSummary, CharacterView, CraftReport, League, PricedItem, PricePoint, SessionSummary } from './types';
 
 export interface SessionState {
   summary: SessionSummary;
@@ -20,6 +20,10 @@ export interface PricerApi {
   craftAdvice(itemId: string): Promise<CraftReport>;
   /** Prices items again with the current market (all present items, or the given ids). */
   reprice(ids?: string[]): Promise<{ queued: number }>;
+  /** PoE HUB: league challenge list (per league) and gear upgrade search for the opened character. */
+  getChallenges(): Promise<import('../core/hub/challenges').Challenge[]>;
+  saveChallenges(list: import('../core/hub/challenges').Challenge[]): Promise<import('../core/hub/challenges').Challenge[]>;
+  upgradeSearch(slot: string): Promise<UpgradeResult>;
   /** Prices an item from text copied in game with Ctrl+C. */
   checkText(text: string): Promise<PriceCheck>;
   getChecks(): Promise<PriceCheck[]>;

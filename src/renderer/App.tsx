@@ -10,6 +10,7 @@ import { StashView } from './components/StashView';
 import { CharacterView } from './components/CharacterView';
 import { GroupsView } from './components/GroupsView';
 import { ChecksView } from './components/ChecksView';
+import { ChallengesView } from './components/ChallengesView';
 import type { PriceCheck } from '../shared/types';
 import { formatPrice } from './format';
 import { isBelowMin } from '../core/config';
@@ -31,10 +32,10 @@ export function App() {
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
   const [checks, setChecks] = useState<PriceCheck[]>([]);
-  const [view, setView] = useState<'list' | 'stash' | 'groups' | 'character' | 'check'>(() => {
+  const [view, setView] = useState<'list' | 'stash' | 'groups' | 'character' | 'check' | 'challenges'>(() => {
     try {
       const v = localStorage.getItem('pricer-view');
-      return v === 'stash' || v === 'groups' || v === 'character' || v === 'check' ? v : 'list';
+      return v === 'stash' || v === 'groups' || v === 'character' || v === 'check' || v === 'challenges' ? v : 'list';
     } catch { return 'list'; }
   });
   useEffect(() => {
@@ -216,6 +217,7 @@ export function App() {
           <button className={view === 'stash' ? 'on' : ''} onClick={() => setView('stash')}>Zakładki</button>
           <button className={view === 'groups' ? 'on' : ''} onClick={() => setView('groups')}>Kategorie</button>
           <button className={view === 'character' ? 'on' : ''} onClick={() => setView('character')}>Postać</button>
+          <button className={view === 'challenges' ? 'on' : ''} onClick={() => setView('challenges')}>Challenge</button>
           <button className={view === 'check' ? 'on' : ''} onClick={() => setView('check')}>Sprawdź (Ctrl+C){checks.length ? ` · ${checks.length}` : ''}</button>
         </div>
         <span className="spacer" />
@@ -244,7 +246,9 @@ export function App() {
       </section>
 
       <main className="content">
-        {view === 'check' ? (
+        {view === 'challenges' ? (
+          <ChallengesView />
+        ) : view === 'check' ? (
           <ChecksView checks={checks} currency={currency} divine={divine} minValue={minValue} selectedId={selected?.item.id ?? null} onSelect={setSelected} desktop={navigator.userAgent.includes('Electron')} />
         ) : view === 'character' ? (
           <CharacterView currency={currency} divine={divine} selectedId={selected?.item.id ?? null} onSelect={setSelected} />

@@ -245,3 +245,13 @@ export interface PriceCheck {
   price: PriceEstimate;
   advice?: Advice;
 }
+
+/** PoE HUB: trade offers that would upgrade one gear slot. */
+export interface UpgradeResult {
+  slot: string;
+  /** What the search asks for, e.g. "życie 80+", "fire res 40%+". */
+  wants: string[];
+  total: number;
+  offers: { chaos: number | null; amount: number; currency: string; name: string; mods: string[] }[];
+  tradeUrl: string;
+}

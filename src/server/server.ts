@@ -119,6 +119,12 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, await service.checkText(String(text ?? '')));
       }
       case 'GET /api/checks': return json(res, 200, service.getChecks());
+      case 'GET /api/challenges': return json(res, 200, service.getChallenges());
+      case 'POST /api/challenges': return json(res, 200, service.saveChallenges((await readBody(req)).list));
+      case 'POST /api/upgrade': {
+        const { slot } = await readBody(req);
+        return json(res, 200, await service.upgradeSearch(String(slot ?? '')));
+      }
       case 'POST /api/stop': service.stop(); return json(res, 200, { ok: true });
       case 'POST /api/discord/test': {
         const { webhook } = await readBody(req);

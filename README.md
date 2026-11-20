@@ -81,14 +81,19 @@ Jeśli coś nie działa, pasek stanu pod kafelkami podaje przyczynę (np. nieakt
 - Twoje przedmioty pochodzą z Twojej skrzyni (serwer GGG, POESESSID) albo z Ctrl+C. Trade służy wyłącznie do porównania z ofertami innych graczy.
 - Szanuje limity: User-Agent z kontaktem, max 2 równoległe zapytania do poe.ninja, odczyt nagłówków `X-Rate-Limit-*` trade i pauza przed przekroczeniem.
 
-## Plany na przyszłość: PoE HUB
+## PoE HUB (od wersji 0.4.0)
 
-Docelowo aplikacja ma urosnąć do **PoE HUB** – jednego miejsca, które pomaga w całej grze, nie tylko w wycenie. Każdy obszar będzie osobnym modułem (`src/core/<moduł>`), korzystającym ze wspólnych klientów API, profilu i ligi:
+- **Postać → „PoE HUB – co poprawić”** – diagnoza ekwipunku: brakujące odporności (do 75%), ujemny chaos res, mało życia, buty bez szybkości ruchu, puste sloty.
+- **Najtańsze poprawki** – crafty z crafting bencha, które łatają braki (np. +30% odporności na zimno za 1c), z kosztem. Jeśli program nie wie, czy przedmiot ma wolny sufiks/prefiks, mówi o tym wprost.
+- **Szukaj ulepszenia** (przy każdym slocie) – szuka na trade przedmiotu, który ma co najmniej tyle życia i odporności co obecny, plus część brakujących odporności; pokazuje najtańsze oferty i link do wyszukiwania. Najsłabsze sloty są podświetlone.
+- **Pomoc w budowie postaci** – link do buildów Twojej klasy na poe.ninja i instrukcja importu postaci do Path of Building.
+- **Zakładka Challenge** – wklej listę challenge'y ligi (jedna w linii), odhaczaj zrobione, ustaw kolejność, dopisz notatki. Program podpowiada, co przygotować (mapy, fragmenty bossów, Heist, crafting…). Lista jest zapisywana osobno dla każdej ligi.
+
+## Plany na przyszłość
 
 - **Doradca craftu – rozbudowa** – essence, harvest, meta-crafty i wiele kroków craftu naraz.
-- **Budowa postaci** – pomoc w tworzeniu buildu: drzewko, gemy, wymagane statystyki, porównanie z popularnymi buildami ligi.
-- **Ulepszanie ekwipunku** – bieżące sprawdzanie założonych przedmiotów i podpowiedzi, co wymienić i jaki przedmiot (w jakiej cenie) da największy zysk.
-- **Challenge ligowe** (osobna opcja) – lista wyzwań bieżącej ligi, co przygotować wcześniej, kolejność wykonywania i postęp.
+- **Budowa postaci – dalej** – analiza drzewka i gemów, porównanie z popularnymi buildami ligi.
+- **Ulepszenia na bieżąco** – automatyczne sprawdzanie ekwipunku co jakiś czas i powiadomienie, gdy pojawi się tanie ulepszenie.
 
 ## Struktura
 
