@@ -166,6 +166,9 @@ export function App() {
           <p className="muted">
             {profile ? 'Ustawienia profilu' : 'Pierwsze uruchomienie – kilka prostych kroków.'}
           </p>
+          {profile && window.desktop && (
+            <button type="button" className="btn ghost program-link" onClick={() => { setEditing(false); setProgram('shortcuts'); }}>⌨ Skróty klawiszowe i aktualizacje programu →</button>
+          )}
           {profile
             ? <ProfileForm initial={profile} onSave={saveProfile} onCancel={() => setEditing(false)} />
             : <Wizard onDone={async (p) => { await saveProfile(p); void start(false); }} />}

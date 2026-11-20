@@ -53,6 +53,8 @@ function ShortcutsPanel() {
     if (!capturing) return;
     void window.desktop!.pauseShortcuts(true);
     const onKey = (e: KeyboardEvent) => {
+      // Typing in the list picker (select, checkboxes) is not a new shortcut.
+      if (e.target instanceof Element && e.target.closest('.sc-manual')) return;
       e.preventDefault();
       e.stopPropagation();
       if (e.type === 'keyup') {
@@ -103,7 +105,7 @@ function ShortcutsPanel() {
   return (
     <fieldset className="program-box">
       <legend>Skróty klawiszowe</legend>
-      <span className="hint">Działają w całym systemie, także w grze. Kliknij „Zmień” i naciśnij nową kombinację (np. Ctrl+Alt+P). Esc – anuluj. Zmiany działają od razu.</span>
+      <span className="hint">Działają w całym systemie, także w grze. Kliknij „Zmień” i naciśnij nową kombinację (np. Ctrl+Alt+P) – albo wybierz ją z listy pod spodem. Esc – anuluj. Zmiany działają od razu.</span>
       {st.wayland && <span className="hint warn-text">Masz sesję Wayland – część pulpitów ignoruje skróty globalne programów. Jeśli skrót nie działa, wybierz w ekranie logowania sesję „X11” (np. Cinnamon na Linux Mint działa na X11).</span>}
 
       <div className="shortcut-list">
@@ -147,6 +149,7 @@ function ShortcutsPanel() {
                   </>
                 )}
               </div>
+              {isCap && <ManualPicker current={acc} onSave={(v) => void save(a.id, v)} />}
             </div>
           );
         })}
@@ -156,6 +159,44 @@ function ShortcutsPanel() {
         {msg && msg.action === null && <span className="hint">{msg.text}</span>}
       </div>
     </fieldset>
+  );
+}
+
+/** Keys offered in the list picker (same names as Electron accelerators). */
+const PICK_KEYS: { value: string; label: string }[] = [
+  ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('').map((k) => ({ value: k, label: k })),
+  ...Array.from({ length: 12 }, (_, i) => ({ value: `F${i + 1}`, label: `F${i + 1}` })),
+  { value: 'Left', label: '← (strzałka w lewo)' }, { value: 'Right', label: '→ (strzałka w prawo)' },
+  { value: 'Up', label: '↑ (strzałka w górę)' }, { value: 'Down', label: '↓ (strzałka w dół)' },
+  ...Array.from({ length: 10 }, (_, i) => ({ value: `num${i}`, label: `Num ${i} (klawiatura numeryczna)` })),
+  { value: 'Home', label: 'Home' }, { value: 'End', label: 'End' }, { value: 'PageUp', label: 'PageUp' }, { value: 'PageDown', label: 'PageDown' },
+  { value: 'Insert', label: 'Insert' }, { value: 'Delete', label: 'Delete' }, { value: 'Space', label: 'Spacja' },
+];
+
+/**
+ * Second way to set a shortcut: tick Ctrl/Alt/Shift and pick the key from a list.
+ * Works even when the system or another program swallows the key press before the app sees it.
+ */
+function ManualPicker({ current, onSave }: { current: string; onSave: (acc: string) => void }) {
+  const parts = (current || 'CommandOrControl+Alt+P').split('+');
+  const [ctrl, setCtrl] = useState(parts.includes('CommandOrControl'));
+  const [alt, setAlt] = useState(parts.includes('Alt'));
+  const [shift, setShift] = useState(parts.includes('Shift'));
+  const last = parts[parts.length - 1];
+  const [key, setKey] = useState(PICK_KEYS.some((k) => k.value === last) ? last : 'P');
+  const acc = [ctrl && 'CommandOrControl', alt && 'Alt', shift && 'Shift', key].filter(Boolean).join('+');
+  return (
+    <div className="sc-manual">
+      <span className="hint">albo wybierz:</span>
+      <label className="sc-toggle"><input type="checkbox" checked={ctrl} onChange={(e) => setCtrl(e.target.checked)} />Ctrl</label>
+      <label className="sc-toggle"><input type="checkbox" checked={alt} onChange={(e) => setAlt(e.target.checked)} />Alt</label>
+      <label className="sc-toggle"><input type="checkbox" checked={shift} onChange={(e) => setShift(e.target.checked)} />Shift</label>
+      <span>+</span>
+      <select value={key} onChange={(e) => setKey(e.target.value)} aria-label="Klawisz">
+        {PICK_KEYS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+      </select>
+      <button type="button" className="btn primary small" onClick={() => onSave(acc)}>Zapisz {formatAccelerator(acc)}</button>
+    </div>
   );
 }
 
