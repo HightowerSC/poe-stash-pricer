@@ -415,3 +415,40 @@ button.link { background: none; border: 0; padding: 0; color: var(--gold); curso
   .hub-slots { grid-template-columns: 1fr; }
 }
 html.readonly .topbar .btn, html.readonly .farm .btn, html.readonly .challenges .btn, html.readonly .market .btn.primary { display: none; }
+
+/* ---------- Program: shortcuts and updates (desktop app) ---------- */
+.program-settings { display: flex; flex-direction: column; gap: 14px; }
+.program-box { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.program-box legend { color: var(--gold); padding: 0 6px; font-size: 14px; }
+.program-box .inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.shortcut-list { display: flex; flex-direction: column; gap: 6px; }
+.shortcut-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 8px; background: rgba(0,0,0,.2); border: 1px solid transparent; }
+.shortcut-row.capturing { border-color: var(--gold); }
+.shortcut-row.fixed { background: rgba(0,0,0,.1); }
+.sc-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sc-label b { font-weight: 600; }
+.sc-key { font: 13px ui-monospace, monospace; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel-2); min-width: 120px; text-align: center; white-space: nowrap; }
+.sc-key.off { color: var(--muted); font-style: italic; }
+.sc-key.bad { border-color: rgba(192,88,74,.8); color: #e08a7e; }
+.sc-key.capture { border-color: var(--gold); color: var(--gold); animation: sc-pulse 1.2s ease-in-out infinite; }
+@keyframes sc-pulse { 50% { opacity: .55; } }
+.sc-actions { display: flex; gap: 6px; justify-content: flex-end; min-width: 190px; }
+.sc-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; }
+.sc-toggle input { width: auto; margin: 0; }
+.warn-text { color: #d9b25f; }
+.update-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.update-box { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: rgba(0,0,0,.2); }
+.update-box.ok { border-color: rgba(110,170,100,.5); }
+.update-box.new { border-color: var(--gold); }
+.update-box.bad { border-color: rgba(192,88,74,.6); }
+.update-box code { white-space: pre-wrap; word-break: break-word; font-size: 11px; }
+.update-notes summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.update-notes-text { white-space: pre-wrap; font-size: 13px; line-height: 1.45; margin-top: 6px; max-height: 260px; overflow: auto; }
+.progress-wrap { display: flex; flex-direction: column; gap: 4px; }
+.progress { height: 8px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; }
+.progress > div { height: 100%; background: linear-gradient(90deg, #8a6420, #d6b46a); transition: width .3s; }
+.btn.update-ready { border-color: #d6b46a; color: #f0d58f; background: rgba(214,180,106,.12); }
+@media (max-width: 720px) {
+  .shortcut-row { grid-template-columns: 1fr; }
+  .sc-actions { justify-content: flex-start; min-width: 0; }
+}
