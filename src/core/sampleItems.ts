@@ -81,6 +81,19 @@ export function sampleItems(): PricedItem[] {
       },
     },
     {
+      firstSeen: at(3),
+      item: {
+        id: 's8', name: 'The Covenant', typeLine: 'Spidersilk Robe', baseType: 'Spidersilk Robe', icon: `${ICON}Armours/BodyArmours/TheCovenant.png`, ilvl: 84, frameType: 3, corrupted: true,
+        implicitMods: ['+1 to Level of Socketed Gems'],
+        explicitMods: ['Socketed Gems are Supported by Level 22 Blood Magic', '+112 to maximum Energy Shield', '20% increased Spell Damage'],
+      },
+      price: {
+        itemId: 's8', source: 'poe.ninja', chaos: 25, low: 22, high: 28, confidence: 'low', sampleSize: 12, lowerBound: true,
+        specialMods: ['+1 to Level of Socketed Gems'],
+        note: 'bez wartościowego corruptu (+1 to Level of Socketed Gems) – cena może być wyższa; UniqueArmour',
+      },
+    },
+    {
       firstSeen: at(20),
       item: { id: 's5', name: 'Gloom Grip', typeLine: 'Iron Gauntlets', baseType: 'Iron Gauntlets', icon: `${ICON}Armours/Gloves/IronGauntlets.png`, ilvl: 45, frameType: 2,
         explicitMods: ['+12 to Strength', '+8 to Accuracy Rating', '5% increased Stun Duration on Enemies'] },

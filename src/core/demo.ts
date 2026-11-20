@@ -23,6 +23,7 @@ const DEMO_LOCATIONS: Record<string, ItemLocation> = {
   s6: { tab: 'Jewele', x: 0, y: 0, w: 1, h: 1 },
   s7: { tab: 'Jewele', x: 1, y: 0, w: 1, h: 1 },
   s5: { tab: 'Inbox', x: 8, y: 3, w: 2, h: 2 },
+  s8: { tab: 'Inbox', x: 10, y: 0, w: 2, h: 3 },
 };
 
 export function demoItems(): PricedItem[] {

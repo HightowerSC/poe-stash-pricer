@@ -16,6 +16,9 @@ import { advise } from './extras/advice';
 import { emptyHistory, recordPrice, recordValue, sessionSummary, type HistoryStore } from './extras/history';
 import { discordPayload, sendDiscord } from './extras/discord';
 import { toCsv } from './extras/csv';
+import { craftReport, demoCraftPricer } from './craft/advisor';
+import { modWeight } from './pricing/tradeQuery';
+import type { CraftReport } from '../shared/types';
 
 export type ServiceEvent =
   | { type: 'items'; payload: PricedItem[] }
@@ -27,6 +30,8 @@ const safe = (league: string) => league.replace(/[^\w-]/g, '_');
 
 export class PricerService {
   private watcher: StashWatcher | null = null;
+  private engine: PricingEngine | null = null;
+  private demo = false;
   private items: PricedItem[] = [];
   private history: HistoryStore = emptyHistory();
   private league = '';
@@ -141,6 +146,8 @@ export class PricerService {
     this.sessionStart = new Date().toISOString();
 
     if (demo) {
+      this.demo = true;
+      this.engine = null;
       this.league = profile.league === 'auto' ? 'Demo' : profile.league;
       this.divineRate = 180;
       this.history = emptyHistory();
@@ -162,6 +169,8 @@ export class PricerService {
     this.league = resolveLeague(profile.league, profile.hardcore, leagues);
     const trade = new TradeClient(fetch, profile.accountName);
     const engine = new PricingEngine(profile, this.league, this.ninja, trade);
+    this.engine = engine;
+    this.demo = false;
 
     this.status(`Krok 2/4: pobieram ceny z poe.ninja dla ligi ${this.league}…`);
     const count = await engine.refreshPrices(false, (done, total, failed) => {
@@ -215,6 +224,22 @@ export class PricerService {
     }, store.seen);
     this.watcher.start();
     return { league: this.league, divineRate: this.divineRate };
+  }
+
+  /** Doradca craftu for one item: free affixes, bench crafts priced on trade, random crafts with cost. */
+  async craftAdvice(itemId: string): Promise<CraftReport> {
+    const found = this.items.find((p) => p.item.id === itemId);
+    if (!found) throw new Error('Nie znaleziono przedmiotu.');
+    const current = found.price.chaos;
+    if (this.demo) {
+      return craftReport(found.item, current, demoCraftPricer(current, this.divineRate));
+    }
+    const engine = this.engine;
+    if (!engine) throw new Error('Najpierw kliknij Start – doradca korzysta z cen z trade i poe.ninja.');
+    this.status(`Doradca craftu: sprawdzam ${found.item.name || found.item.typeLine}…`);
+    const report = await craftReport(found.item, current, { tradePrice: (it) => engine.tradePrice(it), chaosRate: (c) => engine.chaosRate(c), weight: modWeight });
+    this.status('Doradca craftu: gotowe.');
+    return report;
   }
 
   private summary(): SessionSummary {

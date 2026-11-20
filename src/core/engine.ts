@@ -13,14 +13,15 @@ import { normalizeItem } from './normalize';
 import { TradeClient, toComparables } from './trade';
 import { NinjaIndex } from './pricing/ninjaMatch';
 import { summarizeListings } from './pricing/listings';
-import { classify, clusterInfo, influenceNames, rarity } from './pricing/classify';
-import { buildQuery, buildStatIndex, hasValuableMods, similarity, statFilters, type StatIndex, type TradeStat } from './pricing/tradeQuery';
+import { classify, clusterInfo, influenceNames, rarity, valuableSpecialMods } from './pricing/classify';
+import { buildQuery, buildStatIndex, hasValuableMods, similarity, statFilters, type QueryOptions, type StatFilter, type StatIndex, type TradeStat } from './pricing/tradeQuery';
 
 /** Trade currency codes -> poe.ninja names, for converting listing prices to chaos. */
 const CURRENCY_NAMES: Record<string, string> = {
   chaos: 'Chaos Orb', divine: 'Divine Orb', exalted: 'Exalted Orb', alch: 'Orb of Alchemy',
   alt: 'Orb of Alteration', fusing: 'Orb of Fusing', chance: 'Orb of Chance', vaal: 'Vaal Orb',
   regal: 'Regal Orb', mirror: 'Mirror of Kalandra', annul: 'Orb of Annulment', gcp: "Gemcutter's Prism",
+  aug: 'Orb of Augmentation', transmute: 'Orb of Transmutation',
 };
 
 const MIN_RESULTS = 5;
@@ -79,7 +80,7 @@ export class PricingEngine {
       case 'map':
         return this.index.price(item) ?? (kind === 'gem' || kind === 'map' ? this.byTrade(item, { baseOnly: true }) : unpriced(item, 'Brak na poe.ninja'));
       case 'unique':
-        return this.index.price(item) ?? this.byTrade(item, { baseOnly: true });
+        return this.priceUnique(item);
       case 'timeless':
         return this.byTrade(item, {});
       case 'clusterJewel': {
@@ -95,7 +96,7 @@ export class PricingEngine {
       case 'flask':
       case 'equipment': {
         const filters = statFilters(item, this.stats);
-        if ((r === 'rare' || r === 'magic') && hasValuableMods(filters)) return this.byTrade(item, {});
+        if ((r === 'rare' || r === 'magic') && hasValuableMods(filters)) return withSpecial(item, await this.byTrade(item, {}));
         // No valuable mods: maybe the base itself is worth something.
         if (isInterestingBase(item)) {
           return this.index.priceBase(item) ?? this.byTrade(item, { baseOnly: true });
@@ -107,17 +108,70 @@ export class PricingEngine {
     }
   }
 
-  /** Comparable listings, loosening the query (fewer optional mods) until there are enough results. */
-  private async byTrade(item: PoeItem, opts: { baseOnly?: boolean }): Promise<PriceEstimate> {
-    if (this.stats.size === 0 && !opts.baseOnly) return unpriced(item, 'Brak danych statystyk trade');
-    const filters = statFilters(item, this.stats);
-    const steps = opts.baseOnly ? [0] : [6, 4, 3, 2, 1];
-    let last: { id: string; ids: string[]; chosen: ReturnType<typeof buildQuery>['chosen'] } | null = null;
+  /**
+   * Uniques, in order:
+   *  1. valuable corrupted implicits -> trade with those mods required (they can multiply the price),
+   *  2. poe.ninja row (links / corruption variant),
+   *  3. trade by name, then without special filters,
+   *  4. special variant missing everywhere ("Voidborn The Covenant") -> price of the plain unique.
+   * Whenever a special mod or variant is ignored, the price is marked as a lower bound.
+   */
+  private async priceUnique(item: PoeItem): Promise<PriceEstimate> {
+    const special = valuableSpecialMods(item);
+    if (special.length && this.stats.size) {
+      const only = { ...item, explicitMods: [], craftedMods: [], fracturedMods: [], enchantMods: [], implicitMods: special };
+      const filters = statFilters(only, this.stats).map((f) => ({ ...f, required: true }));
+      if (filters.length) {
+        const withMods = await this.byTrade(item, { filters, strict: true });
+        if (withMods.chaos != null) return { ...withMods, specialMods: special, note: `z modami: ${special.join(' | ')}; ${withMods.note}` };
+      }
+    }
+    const lowerBound = (e: PriceEstimate, why: string): PriceEstimate =>
+      ({ ...e, specialMods: special.length ? special : undefined, lowerBound: true, confidence: 'low', note: `${why} – cena może być wyższa; ${e.note}` });
 
-    for (const keep of steps) {
-      const { query, sort, chosen } = buildQuery(item, filters, { keep, baseOnly: opts.baseOnly });
+    const ninja = this.index.price(item);
+    if (ninja) return special.length ? lowerBound(ninja, `bez wartościowego corruptu (${special.join(' | ')})`) : ninja;
+
+    const byName = await this.byTrade(item, { baseOnly: true });
+    if (byName.chaos != null) return special.length ? lowerBound(byName, 'bez wartościowego corruptu') : byName;
+
+    const plain = this.index.plainUniqueName(item.name);
+    if (plain) {
+      const variant = item.name.slice(0, item.name.length - plain.length).trim();
+      const plainPrice = this.index.price({ ...item, name: plain }) ?? await this.byTrade(item, { baseOnly: true, name: plain });
+      if (plainPrice.chaos != null) return lowerBound(plainPrice, `wariant „${variant}” nie ma własnych ofert, podaję cenę zwykłej wersji ${plain}`);
+    }
+    return byName;
+  }
+
+  /** Public for the craft advisor: price an item from comparable trade listings. */
+  tradePrice(item: PoeItem): Promise<PriceEstimate> {
+    return this.byTrade(item, {});
+  }
+
+  /** Chaos value of a trade currency code (chaos, divine, exalted, aug, regal…), null when unknown. */
+  chaosRate(code: string): number | null {
+    return this.chaosRates.get(code) ?? null;
+  }
+
+  /**
+   * Comparable listings, loosening the query until there are enough results:
+   * first fewer optional mods, then (last resort) without special filters like influence or ilvl.
+   * Corruption is only dropped from the filters for normal items; strict=true never relaxes.
+   */
+  private async byTrade(item: PoeItem, opts: { baseOnly?: boolean; filters?: StatFilter[]; strict?: boolean; name?: string }): Promise<PriceEstimate> {
+    if (this.stats.size === 0 && !opts.baseOnly) return unpriced(item, 'Brak danych statystyk trade');
+    const filters = opts.filters ?? statFilters(item, this.stats);
+    const keeps = opts.baseOnly || opts.filters ? [0] : [6, 4, 3, 2, 1];
+    const steps: QueryOptions[] = keeps.map((keep) => ({ keep, baseOnly: opts.baseOnly, name: opts.name }));
+    if (!opts.strict) steps.push({ ...steps[steps.length - 1], relaxMisc: true });
+    let last: { id: string; ids: string[]; chosen: ReturnType<typeof buildQuery>['chosen']; relaxed: string[] } | null = null;
+
+    for (const step of steps) {
+      const { query, sort, chosen, relaxed } = buildQuery(item, filters, step);
+      if (step.relaxMisc && relaxed.length === 0) break; // nothing left to relax
       const result = await this.trade.search(this.league, { query, sort }, this.profile.realm);
-      last = { id: result.id, ids: result.result, chosen };
+      if (result.result.length || !last) last = { id: result.id, ids: result.result, chosen, relaxed };
       if (result.total >= MIN_RESULTS) break;
     }
     if (!last || last.ids.length === 0) return unpriced(item, 'Brak podobnych ofert na trade');
@@ -135,11 +189,25 @@ export class PricingEngine {
       high: summary.high,
       confidence: summary.confidence,
       sampleSize: summary.used.length,
-      note: `${summary.note}; filtry: ${last.chosen.length ? last.chosen.map((c) => c.text).join(' | ') : 'baza'}`,
+      note: `${summary.note}; filtry: ${last.chosen.length ? last.chosen.map((c) => c.text).join(' | ') : 'baza'}${dropped(filters, last.chosen, last.relaxed)}`,
+      lowerBound: last.relaxed.length > 0 || undefined,
       comparables: summary.used,
       tradeUrl: this.trade.tradeUrl(this.league, last.id, this.profile.realm),
     };
   }
+}
+
+/** "; pominięto: …" – valuable mods and special filters the final query had to leave out. */
+function dropped(all: StatFilter[], chosen: StatFilter[], relaxed: string[]): string {
+  const skipped = all.filter((f) => f.weight >= 6 && !chosen.includes(f)).map((f) => f.text);
+  const parts = [...skipped, ...relaxed];
+  return parts.length ? `; pominięto: ${parts.join(' | ')}` : '';
+}
+
+/** Rares/magic: mark valuable corrupted implicits so the UI can highlight them. */
+function withSpecial(item: PoeItem, e: PriceEstimate): PriceEstimate {
+  const special = valuableSpecialMods(item);
+  return special.length ? { ...e, specialMods: special } : e;
 }
 
 /** Bases worth checking: high item level, influenced, fractured, synthesised. */

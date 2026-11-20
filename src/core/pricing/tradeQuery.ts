@@ -189,6 +189,10 @@ export interface QueryOptions {
   keep: number;
   /** Price as a plain base: ignore mods, filter on ilvl/influence. */
   baseOnly?: boolean;
+  /** Last resort: drop special filters (corruption, influence, fractured, synthesised, item level). */
+  relaxMisc?: boolean;
+  /** Search a unique under another name (e.g. without a "Voidborn"/"Foulborn" variant prefix). */
+  name?: string;
 }
 
 export function buildQuery(item: PoeItem, filters: StatFilter[], opts: QueryOptions) {
@@ -203,7 +207,7 @@ export function buildQuery(item: PoeItem, filters: StatFilter[], opts: QueryOpti
   const query: Record<string, any> = { status: { option: 'online' } };
 
   if (kind === 'unique' || kind === 'timeless') {
-    query.name = item.name;
+    query.name = opts.name ?? item.name;
     query.type = item.baseType || item.typeLine;
   } else if (CATEGORY[kind] && r === 'rare') {
     typeFilters.category = { option: CATEGORY[kind] };
@@ -214,16 +218,22 @@ export function buildQuery(item: PoeItem, filters: StatFilter[], opts: QueryOpti
   if (r === 'rare' || r === 'magic' || r === 'normal') {
     typeFilters.rarity = { option: opts.baseOnly ? 'nonunique' : r === 'rare' ? 'rare' : 'nonunique' };
   }
-  if (item.corrupted !== undefined && kind !== 'currency') misc.corrupted = { option: item.corrupted ? 'true' : 'false' };
+  const relaxed: string[] = [];
+  const add = (key: string, value: unknown, label: string) => {
+    if (opts.relaxMisc) relaxed.push(label);
+    else misc[key] = value;
+  };
+  if (item.corrupted && kind !== 'currency') add('corrupted', { option: 'true' }, 'skażenie');
+  else if (item.corrupted === false && kind !== 'currency') misc.corrupted = { option: 'false' };
 
   // Bases and cluster jewels: item level matters (crafting tiers / notable availability).
-  if (opts.baseOnly || kind === 'clusterJewel') {
+  if ((opts.baseOnly && (kind === 'equipment' || kind === 'jewel' || kind === 'abyssJewel' || kind === 'flask')) || kind === 'clusterJewel') {
     const ilvl = item.ilvl >= 86 ? 86 : item.ilvl >= 84 ? 84 : item.ilvl >= 82 ? 82 : item.ilvl >= 75 ? 75 : 0;
-    if (ilvl) misc.ilvl = { min: ilvl };
+    if (ilvl) add('ilvl', { min: ilvl }, `ilvl ${ilvl}+`);
   }
-  for (const inf of influenceNames(item)) misc[`${inf}_item`] = { option: 'true' };
-  if (item.fractured) misc.fractured_item = { option: 'true' };
-  if (item.synthesised) misc.synthesised_item = { option: 'true' };
+  for (const inf of influenceNames(item)) add(`${inf}_item`, { option: 'true' }, `wpływ ${inf}`);
+  if (item.fractured) add('fractured_item', { option: 'true' }, 'fractured');
+  if (item.synthesised) add('synthesised_item', { option: 'true' }, 'synthesised');
 
   query.stats = [{
     type: 'and',
@@ -240,7 +250,7 @@ export function buildQuery(item: PoeItem, filters: StatFilter[], opts: QueryOpti
     misc_filters: { filters: misc },
     trade_filters: { filters: { sale_type: { option: 'priced' } } },
   };
-  return { query, sort: { price: 'asc' }, chosen };
+  return { query, sort: { price: 'asc' }, chosen, relaxed };
 }
 
 /** Similarity of a listed item to ours: share of our chosen filters that it satisfies. */

@@ -1,6 +1,6 @@
 // The bridge exposed by the preload script as window.pricer.
 
-import type { AppSettings, League, PricedItem, PricePoint, SessionSummary } from './types';
+import type { AppSettings, CraftReport, League, PricedItem, PricePoint, SessionSummary } from './types';
 
 export interface SessionState {
   summary: SessionSummary;
@@ -16,6 +16,8 @@ export interface PricerApi {
   /** Starts watching with the active profile. demo=true shows sample items without any network calls. */
   start(demo: boolean): Promise<{ league: string; divineRate: number | null }>;
   stop(): Promise<void>;
+  /** Doradca craftu: can a mod be added so the item sells for more? */
+  craftAdvice(itemId: string): Promise<CraftReport>;
   getItems(): Promise<PricedItem[]>;
   getSession(): Promise<SessionState>;
   resetSession(): Promise<void>;

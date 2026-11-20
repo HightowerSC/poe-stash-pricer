@@ -4,6 +4,7 @@ import { demoItems, demoValue } from '../core/demo';
 import { sessionSummary } from '../core/extras/history';
 import { toCsv } from '../core/extras/csv';
 import { upgradeProfile } from '../core/config';
+import { craftReport, demoCraftPricer } from '../core/craft/advisor';
 
 /** Used when the UI runs in a normal browser (design preview, screenshots). */
 export function browserMockApi(): PricerApi {
@@ -45,6 +46,11 @@ export function browserMockApi(): PricerApi {
       return { league: 'Covens', divineRate: 180 };
     },
     async stop() {},
+    async craftAdvice(id) {
+      const found = items.find((p) => p.item.id === id);
+      if (!found) throw new Error('Nie znaleziono przedmiotu.');
+      return craftReport(found.item, found.price.chaos, demoCraftPricer(found.price.chaos, session.divineRate));
+    },
     async getItems() { return items; },
     async getSession() { return session; },
     async resetSession() {

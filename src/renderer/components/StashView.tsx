@@ -62,7 +62,7 @@ export function StashView({ items, currency, divine, minValue, selectedId, onSel
                 >
                   {p.item.icon && <img src={p.item.icon} alt="" loading="lazy" />}
                   {p.item.stackSize && p.item.stackSize > 1 && <span className="stack">{p.item.stackSize}</span>}
-                  <span className="tag">{formatPrice(p.price.chaos, currency, divine)}</span>
+                  <span className="tag">{p.price.specialMods?.length ? "★ " : ""}{formatPrice(p.price.chaos, currency, divine)}{p.price.lowerBound && p.price.chaos != null ? "+" : ""}</span>
                 </button>
               );
             })}
@@ -78,7 +78,7 @@ export function StashView({ items, currency, divine, minValue, selectedId, onSel
             <button key={p.item.id} className={`stash-row ${rarityClass(p.item)}`} onClick={() => onSelect(p)}>
               <span>{displayName(p.item).title}</span>
               <span className="muted">slot {p.location!.x + 1}{p.location!.y ? `, ${p.location!.y + 1}` : ''}</span>
-              <b>{formatPrice(p.price.chaos, currency, divine)}</b>
+              <b>{formatPrice(p.price.chaos, currency, divine)}{p.price.lowerBound && p.price.chaos != null ? "+" : ""}</b>
             </button>
           ))}
         </div>

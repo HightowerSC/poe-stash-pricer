@@ -37,9 +37,12 @@ export function ItemCard({ data, currency, divine, active, belowMin, minValue, o
           </div>
         )}
         {advice && <span className={`advice ${advice.action}`} title={advice.reason}>{advice.label}</span>}
+        {price.specialMods?.length ? <span className="special-tag" title={price.specialMods.join('\n')}>★ wartościowy corrupt</span> : null}
       </div>
       <div className="card-price">
-        <div className="price">{formatPrice(price.chaos, currency, divine)}</div>
+        <div className="price" title={price.lowerBound ? 'Cena minimalna – przedmiot ma specjalny mod lub wariant, realna wartość może być wyższa' : undefined}>
+          {formatPrice(price.chaos, currency, divine)}{price.lowerBound && price.chaos != null ? '+' : ''}
+        </div>
         {price.low != null && price.high != null && price.low !== price.high && (
           <div className="range">{formatPrice(price.low, currency, divine)}–{formatPrice(price.high, currency, divine)}</div>
         )}

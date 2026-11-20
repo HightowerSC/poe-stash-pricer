@@ -76,7 +76,7 @@
         el.className = 'price' + (below ? ' below' : chaos >= 100 ? ' high' : '');
         Object.assign(el.style, { left: l.x * cw + 'px', top: l.y * ch + 'px', width: l.w * cw + 'px', height: l.h * ch + 'px' });
         const s = document.createElement('span');
-        s.textContent = fmt(chaos);
+        s.textContent = (p.price && p.price.specialMods && p.price.specialMods.length ? '★ ' : '') + fmt(chaos) + (p.price && p.price.lowerBound && chaos != null ? '+' : '');
         el.appendChild(s);
         gridEl.appendChild(el);
       }

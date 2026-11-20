@@ -68,6 +68,20 @@ export class NinjaIndex {
     return fromRow(item, row, `Cluster ${info.passives} pasywek, ilvl ${row.levelRequired ?? '?'}`);
   }
 
+  /**
+   * Special unique variants ("Voidborn The Covenant", "Foulborn …") are often missing on poe.ninja.
+   * Returns the plain unique name when dropping the first word(s) gives a known unique, else null.
+   */
+  plainUniqueName(name: string): string | null {
+    const words = name.trim().split(/\s+/);
+    for (let i = 1; i <= 2 && i < words.length; i++) {
+      const rest = words.slice(i).join(' ');
+      const rows = this.byName.get(rest.toLowerCase());
+      if (rows?.some((r) => r.category !== 'BaseType' && r.category !== 'ClusterJewel')) return rest;
+    }
+    return null;
+  }
+
   /** Returns null when poe.ninja has no row for this item (the caller then uses the trade site). */
   price(item: PoeItem): PriceEstimate | null {
     const isUnique = item.frameType === 3 || item.frameType === 9;

@@ -106,6 +106,10 @@ export interface PriceEstimate {
   tradeUrl?: string;
   /** poe.ninja 7-day change in percent, when known. */
   change7d?: number;
+  /** Special mods that can raise the value a lot (e.g. valuable corrupted implicits). */
+  specialMods?: string[];
+  /** The price ignores some special mod or variant, so the real value may be higher. */
+  lowerBound?: boolean;
   /** Second opinion from poeprices.info (rares only). */
   poeprices?: { min: number; max: number; currency: string; chaos: number; confidence: number } | null;
 }
@@ -147,4 +151,37 @@ export interface PricedItem {
   advice?: Advice;
   /** Our own price snapshots for this kind of item (same name/base), oldest first. */
   history?: PricePoint[];
+}
+
+/** Doradca craftu: one way to add a mod to an item. */
+export interface CraftOption {
+  method: 'bench' | 'aug' | 'regal' | 'exalted';
+  label: string;
+  /** The added mod line (bench crafts only). */
+  line?: string;
+  affix?: 'prefix' | 'suffix';
+  /** Cost in trade currency codes (chaos, divine, exalted, aug, regal). */
+  cost: { amount: number; currency: string };
+  /** true = the result is known (bench), false = random (orbs). */
+  deterministic: boolean;
+}
+
+export interface CraftSuggestion {
+  option: CraftOption;
+  /** Estimated price after the craft (bench crafts only). */
+  priceAfter: number | null;
+  costChaos: number | null;
+  /** priceAfter − current price − cost. */
+  profit: number | null;
+  tradeUrl?: string;
+}
+
+export interface CraftReport {
+  itemId: string;
+  current: number | null;
+  prefixes: string;
+  suffixes: string;
+  suggestions: CraftSuggestion[];
+  /** Why there is nothing to suggest. */
+  reason?: string;
 }

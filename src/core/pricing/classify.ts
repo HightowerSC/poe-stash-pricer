@@ -52,3 +52,22 @@ export function clusterInfo(item: PoeItem): { passives: number; enchant: string 
     .map((m) => m.replace('1 Added Passive Skill is ', ''));
   return { passives, enchant, notables };
 }
+
+const VALUABLE_SPECIAL = new RegExp([
+  'to Level of (all|Socketed)', 'Gems', 'maximum Life', 'all Elemental Resistances', 'Critical Strike Multiplier',
+  'Damage over Time Multiplier', 'Movement Speed', 'Suppress Spell', 'Reservation', 'Aura', 'Elusive', 'Onslaught',
+  'Cannot be (Frozen|Stunned|Poisoned|Ignited|Shocked|Chilled)', 'Damage taken', 'Avoid', 'maximum (Fire|Cold|Lightning|Chaos|all Elemental) Resistance',
+  'additional (Curse|Arrow|Projectile)', 'Power Charge', 'Frenzy Charge', 'Endurance Charge', 'Chaos Resistance',
+  'Attack Speed', 'Cast Speed', '% of (Life|Physical|Damage)', 'Leech', 'Vaal',
+].join('|'), 'i');
+
+/**
+ * Mods that can make an item worth much more than its plain version: valuable corrupted implicits
+ * (Vaal Orb / double corruption) on any item. Pricing searches with them first and never just drops them.
+ */
+export function valuableSpecialMods(item: PoeItem): string[] {
+  if (!item.corrupted) return [];
+  const kind = classify(item);
+  if (kind === 'currency' || kind === 'card' || kind === 'gem' || kind === 'map') return [];
+  return (item.implicitMods ?? []).filter((l): l is string => typeof l === 'string' && VALUABLE_SPECIAL.test(l));
+}

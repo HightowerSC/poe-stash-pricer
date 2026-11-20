@@ -47,6 +47,7 @@ export function httpApi(): PricerApi {
       return call('POST', '/api/start', { demo });
     },
     stop: () => call('POST', '/api/stop', {}),
+    craftAdvice: (id) => call('POST', '/api/craft', { id }),
     getItems: () => call('GET', '/api/items'),
     getSession: () => call('GET', '/api/session'),
     resetSession: () => call('POST', '/api/session/reset', {}),

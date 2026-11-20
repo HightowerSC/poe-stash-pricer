@@ -20,6 +20,8 @@ Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym
 - **Eksport CSV** gotowy do Excela (średniki, przecinek dziesiętny).
 - **Widok zakładek** – siatka 12×12 / 24×24 z ceną na każdym polu (przedmiot lub stack); pozycja przedmiotu („kolumna N, rząd M”) na karcie i w szczegółach.
 - **Overlay w grze** – ceny rysowane na polach skrzynki w przezroczystym oknie (opis niżej).
+- **Doradca craftu** – przycisk „Sprawdź crafty” w szczegółach rare/magic: liczy wolne prefiksy/sufiksy, proponuje bench crafty (wycenione na trade z dodanym modem: cena po, koszt, zysk) oraz orby (aug/regal/exalt – losowe, sam koszt). Koszty benchu są orientacyjne dla 3.30 (`src/core/craft/benchCrafts.ts`).
+- **Specjalne mody i warianty** – wartościowe corrupty (np. +1 do gemów) są szukane na trade w pierwszej kolejności i oznaczone ★. Gdy wariantu unikatu (np. z Voidborna) nie ma na poe.ninja ani w ofertach, aplikacja podaje cenę zwykłej wersji jako **cenę minimalną** (`25c+`) i pisze, co pominięto. Rare bez wyników są szukane bez części modów, a na końcu bez filtrów typu wpływ/ilvl.
 
 ## Uruchomienie (Windows i Linux)
 
@@ -82,7 +84,7 @@ Dlaczego tak: GGG obecnie nie rejestruje nowych aplikacji OAuth (`account:stashe
 
 Docelowo aplikacja ma urosnąć do **PoE HUB** – jednego miejsca, które pomaga w całej grze, nie tylko w wycenie. Każdy obszar będzie osobnym modułem (`src/core/<moduł>`), korzystającym ze wspólnych klientów API, profilu i ligi:
 
-- **Doradca craftu** – czy da się dodać mod (wolny prefiks/sufiks, bench craft, essence, harvest, exalt/aug), ile to kosztuje i o ile podniesie cenę.
+- **Doradca craftu – rozbudowa** – essence, harvest, meta-crafty i wiele kroków craftu naraz.
 - **Budowa postaci** – pomoc w tworzeniu buildu: drzewko, gemy, wymagane statystyki, porównanie z popularnymi buildami ligi.
 - **Ulepszanie ekwipunku** – bieżące sprawdzanie założonych przedmiotów i podpowiedzi, co wymienić i jaki przedmiot (w jakiej cenie) da największy zysk.
 - **Challenge ligowe** (osobna opcja) – lista wyzwań bieżącej ligi, co przygotować wcześniej, kolejność wykonywania i postęp.

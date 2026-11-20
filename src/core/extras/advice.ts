@@ -15,6 +15,12 @@ export function advise(item: PoeItem, price: PriceEstimate, opts: AdviceOptions 
   const r = rarity(item);
   const chaos = price.chaos ?? 0;
 
+  if (price.lowerBound) {
+    return { action: 'check', label: 'Sprawdź ręcznie', reason: price.specialMods?.length
+      ? `Wartościowy corrupt (${price.specialMods.join(', ')}) – ${Math.round(chaos)}c to cena minimalna, sprawdź podobne oferty na trade.`
+      : `Specjalny wariant lub mod – ${Math.round(chaos)}c to cena minimalna, sprawdź podobne oferty na trade.` };
+  }
+
   if (kind === 'currency') {
     return chaos >= opts.sellMinChaos * 4
       ? { action: 'sell', label: 'Sprzedaj', reason: 'Wartościowa waluta – sprzedaj przez Currency Exchange albo zostaw na crafting.' }
