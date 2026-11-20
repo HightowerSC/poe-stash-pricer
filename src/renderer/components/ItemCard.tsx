@@ -2,6 +2,7 @@ import type { PricedItem } from '../../shared/types';
 import { trend } from '../../core/extras/history';
 import { CONFIDENCE_LABEL, displayName, formatPrice, rarityClass } from '../format';
 import { TrendBadge } from './Sparkline';
+import { positionLabel } from '../../core/stashLayout';
 
 interface Props {
   data: PricedItem;
@@ -30,6 +31,11 @@ export function ItemCard({ data, currency, divine, active, belowMin, minValue, o
           <span>{price.source === 'none' ? 'brak wyceny' : price.source}</span>
           <span>· {minutes === 0 ? 'teraz' : minutes < 120 ? `${minutes} min temu` : `${Math.round(minutes / 60)} h temu`}</span>
         </div>
+        {data.location && (
+          <div className="card-loc" title={positionLabel(data.location) ?? ''}>
+            📍 {data.location.tab} · kol. {data.location.x + 1}, rząd {data.location.y + 1}{data.present === false ? ' · już nie ma w zakładce' : ''}
+          </div>
+        )}
         {advice && <span className={`advice ${advice.action}`} title={advice.reason}>{advice.label}</span>}
       </div>
       <div className="card-price">

@@ -54,6 +54,9 @@ export interface PoeItem {
   /** 0 normal, 1 magic, 2 rare, 3 unique, 4 gem, 5 currency, 6 divination card, 8 prophecy/other, 9 foil/relic */
   frameType: number;
   stackSize?: number;
+  /** Size in stash cells. */
+  w?: number;
+  h?: number;
   corrupted?: boolean;
   identified?: boolean;
   sockets?: { group: number; sColour: string }[];
@@ -125,10 +128,22 @@ export interface SessionSummary {
   best: { name: string; chaos: number } | null;
 }
 
+/** Where the item lies: public stash tab name and top-left cell (0-based, as the trade site reports it). */
+export interface ItemLocation {
+  tab: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface PricedItem {
   item: PoeItem;
   price: PriceEstimate;
   firstSeen: string;
+  location?: ItemLocation;
+  /** False once the item no longer shows up in the public tabs (sold, moved out, tab made private). */
+  present?: boolean;
   advice?: Advice;
   /** Our own price snapshots for this kind of item (same name/base), oldest first. */
   history?: PricePoint[];

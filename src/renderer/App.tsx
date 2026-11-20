@@ -5,6 +5,7 @@ import { Sparkline } from './components/Sparkline';
 import { ProfileForm } from './components/ProfileForm';
 import { ItemCard } from './components/ItemCard';
 import { ItemDetails } from './components/ItemDetails';
+import { StashView } from './components/StashView';
 import { formatPrice } from './format';
 import { isBelowMin } from '../core/config';
 
@@ -24,6 +25,12 @@ export function App() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<'list' | 'stash'>(() => {
+    try { return localStorage.getItem('pricer-view') === 'stash' ? 'stash' : 'list'; } catch { return 'list'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('pricer-view', view); } catch { /* ignore */ }
+  }, [view]);
 
   useEffect(() => {
     void window.pricer.getSettings().then(setSettings);
@@ -178,7 +185,11 @@ export function App() {
       </div>
 
       <section className="toolbar">
-        <h2>Nowe przedmioty</h2>
+        <div className="seg view-switch">
+          <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>Lista</button>
+          <button className={view === 'stash' ? 'on' : ''} onClick={() => setView('stash')}>Zakładki</button>
+        </div>
+        <span className="spacer" />
         <div className="threshold" title="Przedmioty warte mniej niż ta kwota (albo bez ceny) są oznaczane jako tanie">
           <label>
             Minimum
@@ -204,7 +215,9 @@ export function App() {
       </section>
 
       <main className="content">
-        {visible.length === 0 ? (
+        {view === 'stash' && items.length > 0 ? (
+          <StashView items={hideBelow ? visible : items} currency={currency} divine={divine} minValue={minValue} selectedId={selected?.item.id ?? null} onSelect={setSelected} />
+        ) : visible.length === 0 ? (
           <div className="empty">
             {busy || running ? (
               <>

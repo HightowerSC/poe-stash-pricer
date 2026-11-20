@@ -5,6 +5,23 @@ import { modTiers } from '../../core/extras/tiers';
 import { trend } from '../../core/extras/history';
 import { CONFIDENCE_LABEL, displayName, formatPrice, rarityClass } from '../format';
 import { Sparkline, TrendBadge } from './Sparkline';
+import { positionLabel } from '../../core/stashLayout';
+import type { ItemLocation } from '../../shared/types';
+
+/** Tiny 12×12 (or 24×24) map with the item's cells highlighted. */
+function MiniGrid({ loc }: { loc: ItemLocation }) {
+  const size = loc.x + loc.w > 12 || loc.y + loc.h > 12 ? 24 : 12;
+  return (
+    <div className="minigrid" style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }} aria-hidden>
+      {Array.from({ length: size * size }, (_, i) => {
+        const x = i % size;
+        const y = Math.floor(i / size);
+        const on = x >= loc.x && x < loc.x + loc.w && y >= loc.y && y < loc.y + loc.h;
+        return <span key={i} className={on ? 'on' : ''} />;
+      })}
+    </div>
+  );
+}
 
 interface Props {
   data: PricedItem;
@@ -59,6 +76,17 @@ export function ItemDetails({ data, currency, divine, onClose }: Props) {
           {item.corrupted && <div className="corrupted">Skażony</div>}
         </div>
       </div>
+
+      {data.location && (
+        <div className={`location-box ${data.present === false ? 'gone' : ''}`}>
+          <MiniGrid loc={data.location} />
+          <div>
+            <div className="advice-title">Gdzie leży</div>
+            <div className="small">{positionLabel(data.location)}</div>
+            {data.present === false && <div className="small error-text">Przedmiotu nie ma już w publicznej zakładce.</div>}
+          </div>
+        </div>
+      )}
 
       <div className="valuation">
         <div className="val-main">{formatPrice(price.chaos, currency, divine)}</div>

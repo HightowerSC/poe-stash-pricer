@@ -1,6 +1,6 @@
 // Demo state shared by Electron's demo mode and the browser preview.
 
-import type { PricedItem, PricePoint } from '../shared/types';
+import type { ItemLocation, PricedItem, PricePoint } from '../shared/types';
 import { sampleItems } from './sampleItems';
 import { advise } from './extras/advice';
 
@@ -14,8 +14,26 @@ export function demoHistory(chaos: number | null, points = 12, seed = 0): PriceP
   }));
 }
 
+/** Demo positions: two normal tabs, items placed like a player would. */
+const DEMO_LOCATIONS: Record<string, ItemLocation> = {
+  s1: { tab: 'Inbox', x: 0, y: 0, w: 1, h: 1 },
+  s2: { tab: 'Inbox', x: 2, y: 0, w: 2, h: 2 },
+  s3: { tab: 'Inbox', x: 5, y: 0, w: 2, h: 1 },
+  s4: { tab: 'Inbox', x: 0, y: 2, w: 1, h: 1 },
+  s6: { tab: 'Jewele', x: 0, y: 0, w: 1, h: 1 },
+  s7: { tab: 'Jewele', x: 1, y: 0, w: 1, h: 1 },
+  s5: { tab: 'Inbox', x: 8, y: 3, w: 2, h: 2 },
+};
+
 export function demoItems(): PricedItem[] {
-  return sampleItems().map((p, i) => ({ ...p, advice: advise(p.item, p.price, { sellMinChaos: 5 }), history: demoHistory(p.price.chaos, 12, i) }));
+  return sampleItems().map((p, i) => ({
+    ...p,
+    item: { ...p.item, w: DEMO_LOCATIONS[p.item.id]?.w, h: DEMO_LOCATIONS[p.item.id]?.h },
+    location: DEMO_LOCATIONS[p.item.id],
+    present: true,
+    advice: advise(p.item, p.price, { sellMinChaos: 5 }),
+    history: demoHistory(p.price.chaos, 12, i),
+  }));
 }
 
 export function demoValue(items: PricedItem[]): PricePoint[] {

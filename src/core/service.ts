@@ -194,6 +194,22 @@ export class PricerService {
         self.pushState();
         self.notify(enriched, profile);
       },
+      onPresent: (ids, total) => {
+        // Only trust absence when the search returned everything (it is capped at 100 results).
+        if (total > ids.length) return;
+        const present = new Set(ids);
+        let changed = false;
+        self.items = self.items.map((p) => {
+          const now = present.has(p.item.id);
+          if (p.present === now) return p;
+          changed = true;
+          return { ...p, present: now };
+        });
+        if (changed) {
+          self.writeJson(`items-${safe(self.league)}.json`, { seen: self.watcher?.seenIds ?? [], items: self.items });
+          self.emit({ type: 'items', payload: self.items });
+        }
+      },
       onStatus: (text) => this.emit({ type: 'status', payload: { text } }),
       onError: (text) => this.emit({ type: 'status', payload: { text, error: true } }),
     }, store.seen);

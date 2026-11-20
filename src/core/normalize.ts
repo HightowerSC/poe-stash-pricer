@@ -41,6 +41,8 @@ export function normalizeItem(raw: any): PoeItem {
   item.icon = str(item.icon);
   item.ilvl = Number(item.ilvl ?? item.itemLevel ?? 0) || 0;
   item.frameType = Number(item.frameType ?? 0) || 0;
+  item.w = Math.max(1, Number(item.w ?? 1) || 1);
+  item.h = Math.max(1, Number(item.h ?? 1) || 1);
   for (const f of MOD_FIELDS) {
     const v = lines(item[f]);
     if (v) item[f] = v;
@@ -57,4 +59,14 @@ export function normalizeItem(raw: any): PoeItem {
   }
   if (item.sockets && !Array.isArray(item.sockets)) delete item.sockets;
   return item as PoeItem;
+}
+
+/** Location of a trade listing in the seller's public tab. */
+export function listingLocation(listing: any, item: PoeItem): import('../shared/types').ItemLocation | undefined {
+  const st = listing?.listing?.stash;
+  if (!st || typeof st !== 'object') return undefined;
+  const x = Number(st.x);
+  const y = Number(st.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+  return { tab: str(st.name, '?'), x, y, w: item.w ?? 1, h: item.h ?? 1 };
 }

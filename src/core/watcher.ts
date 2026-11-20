@@ -1,7 +1,7 @@
 // Polls the trade site for items in the user's public tabs and prices the ones not seen before.
 
 import type { PoeItem, PriceEstimate, PricedItem, Profile } from '../shared/types';
-import { normalizeItem } from './normalize';
+import { listingLocation, normalizeItem } from './normalize';
 import type { PricingEngine } from './engine';
 import type { TradeClient } from './trade';
 
@@ -9,6 +9,8 @@ export interface WatcherEvents {
   onItems(items: PricedItem[]): void;
   onStatus(text: string): void;
   onError(text: string): void;
+  /** Ids currently visible in the public tabs, and how many there are in total. */
+  onPresent?(ids: string[], total: number): void;
 }
 
 /** How many new items to fetch and price per check. */
@@ -47,6 +49,9 @@ export class StashWatcher {
       this.events.onStatus('Sprawdzam publiczne zakładki…');
       await this.engine.refreshPrices();
       const search = await this.trade.searchAccountItems(this.league, this.profile.accountName, this.profile.realm);
+      // The search lists everything currently in the public tabs (up to 100 newest): report it so
+      // items that disappeared (sold, moved out) can be greyed out in the tab view.
+      this.events.onPresent?.(search.result, search.total);
       const unseen = search.result.filter((id) => !this.seen.has(id));
       // Price in batches so one check never floods the trade site; the rest waits for the next check.
       const batch = unseen.slice(0, BATCH);
@@ -65,7 +70,13 @@ export class StashWatcher {
         }
         const item = normalizeItem(l.item);
         this.events.onStatus(`Wyceniam ${i + 1}/${listings.length}: ${item.name || item.typeLine || 'przedmiot'}…`);
-        priced.push({ item, price: await this.safePrice(item), firstSeen: new Date().toISOString() });
+        priced.push({
+          item,
+          price: await this.safePrice(item),
+          firstSeen: new Date().toISOString(),
+          location: listingLocation(l, item),
+          present: true,
+        });
         if (priced.length % 5 === 0) {
           this.events.onItems(priced.splice(0));
         }
