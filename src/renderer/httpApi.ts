@@ -65,6 +65,7 @@ export function httpApi(): PricerApi {
     reprice: (ids) => call('POST', '/api/reprice', { ids }),
     getChallenges: () => call('GET', '/api/challenges'),
     saveChallenges: (list) => call('POST', '/api/challenges', { list }),
+    syncChallenges: (force) => call('POST', '/api/challenges/sync', { force }),
     upgradeSearch: (slot) => call('POST', '/api/upgrade', { slot }),
     getUpgradeWatch: () => call('GET', '/api/upgrade-watch'),
     saveUpgradeWatch: (settings) => call('POST', '/api/upgrade-watch', { settings }),

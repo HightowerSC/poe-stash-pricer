@@ -27,6 +27,8 @@ export interface PricerApi {
   /** PoE HUB: league challenge list (per league) and gear upgrade search for the opened character. */
   getChallenges(): Promise<import('../core/hub/challenges').Challenge[]>;
   saveChallenges(list: import('../core/hub/challenges').Challenge[]): Promise<import('../core/hub/challenges').Challenge[]>;
+  /** Fetches the league's challenge list on its own (force = skip the cache) and merges it into the saved list. */
+  syncChallenges(force: boolean): Promise<ChallengeSync>;
   upgradeSearch(slot: string): Promise<UpgradeResult>;
   getUpgradeWatch(): Promise<import('./types').UpgradeWatchState>;
   saveUpgradeWatch(s: import('./types').UpgradeWatchSettings): Promise<import('./types').UpgradeWatchState>;
@@ -66,4 +68,15 @@ export interface PricerApi {
 
 declare global {
   interface Window { pricer: PricerApi; pricerReadOnly?: boolean }
+}
+
+export interface ChallengeSync {
+  list: import('../core/hub/challenges').Challenge[];
+  league: string;
+  /** Where the list came from: pathofexile.com (with progress), poedb.tw, or the list bundled with the app. */
+  source: 'official' | 'poedb' | 'bundled' | null;
+  fetchedAt: string | null;
+  /** Why better sources were skipped. */
+  notes: string[];
+  error?: string;
 }
