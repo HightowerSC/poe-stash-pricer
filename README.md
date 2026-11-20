@@ -45,7 +45,7 @@ Wymagane: Node.js 22+ i Git. `npm install`, potem:
 - `npm start` – ten sam program w przeglądarce (http://localhost:5317), bez Electrona,
 - `npm run dev` (hot reload), `npm test`, `npm run typecheck`, `npm run dist` (instalator lokalnie).
 
-Nowa wersja: zmień `version` w `package.json`, zrób tag `vX.Y.Z` i wypchnij go – GitHub Actions zbuduje instalatory i opublikuje Release.
+Nowa wersja: zmień `version` w `package.json` i wypchnij zmianę, potem na GitHubie **Actions → Release → Run workflow** (albo wypchnij tag `vX.Y.Z`) – GitHub Actions zbuduje instalatory i opublikuje Release, a zainstalowane programy same się zaktualizują.
 
 ## Overlay w grze
 
