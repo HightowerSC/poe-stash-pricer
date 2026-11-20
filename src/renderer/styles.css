@@ -533,4 +533,7 @@ html.readonly .side-bottom .nav-item, html.readonly .side-program { display: non
   .shortcut-row { grid-template-columns: 1fr; }
   .sc-actions { justify-content: flex-start; min-width: 0; }
 }
+.sc-manual { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.sc-manual select { flex: none; width: 220px; }
+.program-link { align-self: flex-start; }
 
