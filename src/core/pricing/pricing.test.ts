@@ -103,3 +103,13 @@ describe('parseOverview', () => {
     expect(rows[0]).toMatchObject({ name: 'Divine Orb', chaosValue: 180 });
   });
 });
+
+import { isBelowMin } from '../config';
+describe('minimum value', () => {
+  it('marks cheap and unpriced items, off at 0', () => {
+    expect(isBelowMin(3, 5)).toBe(true);
+    expect(isBelowMin(null, 5)).toBe(true);
+    expect(isBelowMin(5, 5)).toBe(false);
+    expect(isBelowMin(1, 0)).toBe(false);
+  });
+});

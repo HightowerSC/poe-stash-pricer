@@ -16,6 +16,7 @@ Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym
 - **Sesja** – wartość w czasie, chaos na godzinę, najlepszy drop; „Nowa sesja” zeruje licznik.
 - **poeprices.info** – opcjonalna druga opinia dla rare.
 - **Tiery modów** (T1, T2…) na podstawie danych z trade.
+- **Minimalna wartość** – przedmioty tańsze od wpisanego progu (i bez ceny) są wyszarzone z etykietą; można je też ukryć.
 - **Eksport CSV** gotowy do Excela (średniki, przecinek dziesiętny).
 
 ## Uruchomienie (Windows i Linux)

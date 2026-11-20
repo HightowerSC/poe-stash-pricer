@@ -12,6 +12,8 @@ export function newProfile(partial: Partial<Profile> = {}): Profile {
     hardcore: partial.hardcore ?? false,
     watchedTab: partial.watchedTab ?? '',
     notifyMinChaos: partial.notifyMinChaos ?? 10,
+    minValueChaos: partial.minValueChaos ?? 5,
+    hideBelowMin: partial.hideBelowMin ?? false,
     displayCurrency: partial.displayCurrency ?? 'chaos',
     pollSeconds: Math.max(MIN_POLL_SECONDS, partial.pollSeconds ?? 180),
     discordWebhook: partial.discordWebhook ?? '',
@@ -37,6 +39,7 @@ export function validateProfile(p: Profile): string[] {
   if (p.discordWebhook && !isDiscordWebhook(p.discordWebhook)) {
     errors.push('Webhook Discord musi zaczynać się od https://discord.com/api/webhooks/');
   }
+  if (p.minValueChaos < 0) errors.push('Minimalna wartość nie może być ujemna.');
   if (p.notifyMinChaos < 0) errors.push('Próg powiadomień nie może być ujemny.');
   return errors;
 }
@@ -67,4 +70,10 @@ export function isDiscordWebhook(url: string): boolean {
 /** Fills in fields added in later versions, so old settings files keep working. */
 export function upgradeProfile(p: Partial<Profile>): Profile {
   return newProfile(p);
+}
+
+/** True when an item should be marked as cheap: below the user's minimum, or with no price at all. */
+export function isBelowMin(chaos: number | null, minValueChaos: number): boolean {
+  if (minValueChaos <= 0) return false;
+  return chaos == null || chaos < minValueChaos;
 }

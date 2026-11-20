@@ -86,6 +86,10 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
           <input type="number" min={0} value={p.notifyMinChaos} onChange={(e) => set('notifyMinChaos', Number(e.target.value))} />
         </label>
         <label>
+          Minimalna wartość (chaos)
+          <input type="number" min={0} value={p.minValueChaos} onChange={(e) => set('minValueChaos', Number(e.target.value))} />
+        </label>
+        <label>
           Sprawdzaj co (s)
           <input type="number" min={120} step={30} value={p.pollSeconds} onChange={(e) => set('pollSeconds', Number(e.target.value))} />
         </label>

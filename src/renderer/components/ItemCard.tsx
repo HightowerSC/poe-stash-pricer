@@ -8,16 +8,19 @@ interface Props {
   currency: 'chaos' | 'divine';
   divine: number | null;
   active: boolean;
+  belowMin?: boolean;
+  minValue?: number;
   onClick(): void;
 }
 
-export function ItemCard({ data, currency, divine, active, onClick }: Props) {
+export function ItemCard({ data, currency, divine, active, belowMin, minValue, onClick }: Props) {
   const { item, price, advice } = data;
   const { title, subtitle } = displayName(item);
   const minutes = Math.max(0, Math.round((Date.now() - Date.parse(data.firstSeen)) / 60000));
   const change = price.change7d ?? trend(data.history);
   return (
-    <button className={`card ${rarityClass(item)} ${active ? 'active' : ''}`} onClick={onClick}>
+    <button className={`card ${rarityClass(item)} ${active ? 'active' : ''} ${belowMin ? 'below' : ''}`} onClick={onClick}>
+      {belowMin && <span className="below-tag" title={`Wartość poniżej ${minValue}c`}>{price.chaos == null ? 'bez ceny' : `< ${minValue}c`}</span>}
       <div className="card-icon">{item.icon ? <img src={item.icon} alt="" loading="lazy" /> : null}</div>
       <div className="card-body">
         <div className="card-title">{title}</div>

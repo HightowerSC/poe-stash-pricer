@@ -17,6 +17,10 @@ export interface Profile {
   watchedTab: string;
   /** Minimum value (in chaos) for a notification. */
   notifyMinChaos: number;
+  /** Items worth less than this (in chaos) are marked as cheap in the list. 0 = off. */
+  minValueChaos: number;
+  /** Hide items below minValueChaos instead of only dimming them. */
+  hideBelowMin: boolean;
   displayCurrency: 'chaos' | 'divine';
   /** Seconds between checks for new items. Never below 120. */
   pollSeconds: number;

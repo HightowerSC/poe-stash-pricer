@@ -6,6 +6,7 @@ import { ProfileForm } from './components/ProfileForm';
 import { ItemCard } from './components/ItemCard';
 import { ItemDetails } from './components/ItemDetails';
 import { formatPrice } from './format';
+import { isBelowMin } from '../core/config';
 
 type SortKey = 'value' | 'newest';
 
@@ -39,16 +40,34 @@ export function App() {
 
   const profile = settings?.profiles.find((p) => p.id === settings.activeProfileId) ?? null;
 
+  const minValue = profile?.minValueChaos ?? 0;
+  const hideBelow = profile?.hideBelowMin ?? false;
+  const belowCount = items.filter((i) => isBelowMin(i.price.chaos, minValue)).length;
+
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    const list = items.filter((i) => !q || `${i.item.name} ${i.item.typeLine}`.toLowerCase().includes(q));
+    const list = items
+      .filter((i) => !q || `${i.item.name} ${i.item.typeLine}`.toLowerCase().includes(q))
+      .filter((i) => !hideBelow || !isBelowMin(i.price.chaos, minValue));
     return [...list].sort((a, b) =>
       sort === 'value' ? (b.price.chaos ?? -1) - (a.price.chaos ?? -1) : b.firstSeen.localeCompare(a.firstSeen),
     );
-  }, [items, sort, filter]);
+  }, [items, sort, filter, hideBelow, minValue]);
 
   const total = items.reduce((s, i) => s + (i.price.chaos ?? 0), 0);
   const currency = profile?.displayCurrency ?? 'chaos';
+
+  /** Changes one setting of the active profile and saves it right away. */
+  async function updateProfile(patch: Partial<Profile>) {
+    if (!settings || !profile) return;
+    const next: AppSettings = { ...settings, profiles: settings.profiles.map((p) => (p.id === profile.id ? { ...p, ...patch } : p)) };
+    setSettings(next);
+    try {
+      await window.pricer.saveSettings(next);
+    } catch (e) {
+      setStatus({ text: `Nie udało się zapisać ustawień: ${e instanceof Error ? e.message : e}`, error: true });
+    }
+  }
 
   async function saveProfile(p: Profile) {
     const others = settings?.profiles.filter((x) => x.id !== p.id) ?? [];
@@ -160,6 +179,23 @@ export function App() {
 
       <section className="toolbar">
         <h2>Nowe przedmioty</h2>
+        <div className="threshold" title="Przedmioty warte mniej niż ta kwota (albo bez ceny) są oznaczane jako tanie">
+          <label>
+            Minimum
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={minValue}
+              onChange={(e) => void updateProfile({ minValueChaos: Math.max(0, Number(e.target.value) || 0) })}
+            />
+            c
+          </label>
+          <label className="check-inline">
+            <input type="checkbox" checked={hideBelow} onChange={(e) => void updateProfile({ hideBelowMin: e.target.checked })} />
+            ukryj tanie{belowCount ? ` (${belowCount})` : ''}
+          </label>
+        </div>
         <input className="search" placeholder="Szukaj…" value={filter} onChange={(e) => setFilter(e.target.value)} />
         <div className="seg">
           <button className={sort === 'value' ? 'on' : ''} onClick={() => setSort('value')}>Najdroższe</button>
@@ -192,7 +228,7 @@ export function App() {
         ) : (
           <div className="grid">
             {visible.map((p) => (
-              <ItemCard key={p.item.id} data={p} currency={currency} divine={divine} onClick={() => setSelected(p)} active={selected?.item.id === p.item.id} />
+              <ItemCard key={p.item.id} data={p} currency={currency} divine={divine} belowMin={isBelowMin(p.price.chaos, minValue)} minValue={minValue} onClick={() => setSelected(p)} active={selected?.item.id === p.item.id} />
             ))}
           </div>
         )}
