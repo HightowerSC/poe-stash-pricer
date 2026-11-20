@@ -18,6 +18,8 @@ Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym
 - **Tiery modów** (T1, T2…) na podstawie danych z trade.
 - **Minimalna wartość** – przedmioty tańsze od wpisanego progu (i bez ceny) są wyszarzone z etykietą; można je też ukryć.
 - **Eksport CSV** gotowy do Excela (średniki, przecinek dziesiętny).
+- **Widok zakładek** – siatka 12×12 / 24×24 z ceną na każdym polu (przedmiot lub stack); pozycja przedmiotu („kolumna N, rząd M”) na karcie i w szczegółach.
+- **Overlay w grze** – ceny rysowane na polach skrzynki w przezroczystym oknie (opis niżej).
 
 ## Uruchomienie (Windows i Linux)
 
@@ -46,6 +48,23 @@ Ustawienia i historia są zapisywane w folderze `.poe-stash-pricer` w katalogu d
 
 Dla programistów: `npm run dev` (hot reload), `npm test`, `npm run typecheck`.
 
+## Overlay w grze
+
+Przezroczyste okno nad grą, które pokazuje ceny na polach otwartej zakładki. Uruchom aplikację (`npm start`), a w **drugim** terminalu w tym samym folderze:
+
+```
+npm run overlay
+```
+
+Za pierwszym razem pobierze Electron (ok. 100 MB). Komenda jest taka sama na Windows i Linux.
+
+- Gra musi działać w trybie **Windowed Fullscreen** (borderless), nie w pełnym ekranie.
+- **Ctrl+Alt+K** – kalibracja: przeciągnij złotą ramkę na pola zakładki 12×12, kółkiem w rogu zmień rozmiar (strzałki i +/− do precyzji, Enter zapisuje). Robisz to raz na rozdzielczość.
+- **Ctrl+Alt+←/→** – wybór zakładki. Overlay nie wie, którą zakładkę masz otwartą w grze, bo nie czyta ekranu – wybierasz ją skrótem albo z ikony w zasobniku.
+- **Ctrl+Alt+P** – pokaż/ukryj.
+- Overlay tylko wyświetla: nie czyta ekranu, pamięci ani plików gry i nie wysyła żadnych klawiszy do gry (zgodnie z zasadami GGG dla narzędzi zewnętrznych). Kliknięcia przechodzą przez niego do gry.
+- Linux: działa pod X11 (domyślnie np. w Mint Cinnamon). Pod Wayland przezroczyste okna „zawsze na wierzchu” mogą nie działać.
+
 ## Jak przygotować konto
 
 1. W grze utwórz zakładkę (np. „Inbox”) i ustaw ją jako **Public** – bez ceny.
@@ -59,10 +78,20 @@ Dlaczego tak: GGG obecnie nie rejestruje nowych aplikacji OAuth (`account:stashe
 - Aplikacja nie dotyka klienta gry ani jego plików, nie czyta ekranu ani schowka w tle.
 - Szanuje limity: User-Agent z kontaktem, max 2 równoległe zapytania do poe.ninja, odczyt nagłówków `X-Rate-Limit-*` trade i pauza przed przekroczeniem.
 
+## Plany na przyszłość: PoE HUB
+
+Docelowo aplikacja ma urosnąć do **PoE HUB** – jednego miejsca, które pomaga w całej grze, nie tylko w wycenie. Każdy obszar będzie osobnym modułem (`src/core/<moduł>`), korzystającym ze wspólnych klientów API, profilu i ligi:
+
+- **Doradca craftu** – czy da się dodać mod (wolny prefiks/sufiks, bench craft, essence, harvest, exalt/aug), ile to kosztuje i o ile podniesie cenę.
+- **Budowa postaci** – pomoc w tworzeniu buildu: drzewko, gemy, wymagane statystyki, porównanie z popularnymi buildami ligi.
+- **Ulepszanie ekwipunku** – bieżące sprawdzanie założonych przedmiotów i podpowiedzi, co wymienić i jaki przedmiot (w jakiej cenie) da największy zysk.
+- **Challenge ligowe** (osobna opcja) – lista wyzwań bieżącej ligi, co przygotować wcześniej, kolejność wykonywania i postęp.
+
 ## Struktura
 
 - `src/core` – logika aplikacji (klienci API, wycena, testy)
 - `src/server` – lokalny serwer HTTP (API + zdarzenia na żywo), zapis ustawień i historii per liga
 - `src/renderer` – interfejs React
+- `overlay` – okno overlay w grze (Electron, osobny pakiet, instalowany tylko przez `npm run overlay`)
 
 This product isn't affiliated with or endorsed by Grinding Gear Games in any way.

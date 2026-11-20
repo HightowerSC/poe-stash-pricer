@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+<title>PoE Stash Pricer – overlay</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden; font: 600 12px/1.2 system-ui, sans-serif; user-select: none; }
+  #grid { position: absolute; box-sizing: border-box; }
+  .price { position: absolute; display: flex; align-items: flex-end; justify-content: center; box-sizing: border-box; pointer-events: none; }
+  .price span { background: rgba(0,0,0,.78); color: #f1d38a; padding: 1px 4px; border-radius: 3px; margin-bottom: 2px; white-space: nowrap; text-shadow: 0 0 2px #000; font-size: var(--fs, 12px); }
+  .price.high span { color: #7ee08a; }
+  .price.below span { color: #9a917e; opacity: .7; }
+  .price.below { outline: 1px dashed rgba(192,88,74,.6); outline-offset: -2px; }
+  #badge { position: absolute; padding: 3px 8px; background: rgba(0,0,0,.75); color: #e2c27a; border: 1px solid #c8a65a; border-radius: 4px; font-size: 12px; }
+  /* calibration */
+  body.cal { background: rgba(0,0,0,.35); }
+  body.cal #grid { border: 2px solid #e2c27a; background-image: linear-gradient(rgba(226,194,122,.35) 1px, transparent 1px), linear-gradient(90deg, rgba(226,194,122,.35) 1px, transparent 1px); cursor: move; }
+  .handle { display: none; position: absolute; width: 18px; height: 18px; right: -10px; bottom: -10px; background: #e2c27a; border-radius: 50%; cursor: nwse-resize; }
+  body.cal .handle { display: block; }
+  #help { display: none; position: absolute; left: 50%; top: 24px; transform: translateX(-50%); background: rgba(14,13,11,.95); color: #e8e2d4; border: 1px solid #c8a65a; border-radius: 10px; padding: 14px 18px; font-weight: 400; font-size: 14px; max-width: 560px; }
+  body.cal #help { display: block; }
+  #help b { color: #e2c27a; }
+  #help button { margin: 10px 8px 0 0; font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #c8a65a; background: #2a2418; color: #e2c27a; cursor: pointer; }
+  #help button.primary { background: #b48a3c; color: #1a1408; }
+  #help label { display: block; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div id="grid"><div class="handle" id="handle"></div></div>
+  <div id="badge"></div>
+  <div id="help">
+    <b>Kalibracja siatki skrzynki</b><br />
+    Otwórz w grze zwykłą zakładkę (12×12). Przeciągnij złotą ramkę tak, by pokryła dokładnie pola zakładki,
+    a kółkiem w prawym dolnym rogu dopasuj rozmiar. Linie pomocnicze powinny pokrywać się z polami w grze.
+    <label><input type="checkbox" id="quad" /> pokaż linie dla zakładki quad (24×24)</label>
+    <button class="primary" id="save">Zapisz</button>
+    <button id="reset">Przywróć domyślne</button>
+    <div style="margin-top:8px;opacity:.7;font-size:12px">Ctrl+Alt+K – zamknij kalibrację · Ctrl+Alt+P – pokaż/ukryj overlay · Ctrl+Alt+←/→ – zmień zakładkę</div>
+  </div>
+<script>
+  const gridEl = document.getElementById('grid');
+  const badge = document.getElementById('badge');
+  let st = null;
+  let rect = null;
+
+  function fmt(chaos) {
+    if (chaos == null) return '—';
+    if (chaos >= 1000) return (chaos / 1000).toFixed(1) + 'k c';
+    return (chaos >= 10 ? Math.round(chaos) : chaos.toFixed(1)) + 'c';
+  }
+
+  function cells(items) {
+    const maxX = Math.max(0, ...items.map((p) => p.location.x + p.location.w));
+    const maxY = Math.max(0, ...items.map((p) => p.location.y + p.location.h));
+    return maxX > 12 || maxY > 12 ? 24 : 12;
+  }
+
+  function render() {
+    if (!st) return;
+    document.body.classList.toggle('cal', st.calibrating);
+    rect = rect && st.calibrating ? rect : { ...st.grid };
+    Object.assign(gridEl.style, { left: rect.x + 'px', top: rect.y + 'px', width: rect.w + 'px', height: rect.h + 'px' });
+    const n = st.calibrating ? (document.getElementById('quad').checked ? 24 : 12) : cells(st.items);
+    gridEl.style.backgroundSize = `${rect.w / n}px ${rect.h / n}px`;
+
+    gridEl.querySelectorAll('.price').forEach((e) => e.remove());
+    if (!st.calibrating) {
+      const cw = rect.w / n, ch = rect.h / n;
+      gridEl.style.setProperty('--fs', Math.max(9, Math.min(13, cw / 4)) + 'px');
+      for (const p of st.items) {
+        const l = p.location;
+        const el = document.createElement('div');
+        const chaos = p.price && p.price.chaos;
+        const below = st.minValue > 0 && (chaos == null || chaos < st.minValue);
+        el.className = 'price' + (below ? ' below' : chaos >= 100 ? ' high' : '');
+        Object.assign(el.style, { left: l.x * cw + 'px', top: l.y * ch + 'px', width: l.w * cw + 'px', height: l.h * ch + 'px' });
+        const s = document.createElement('span');
+        s.textContent = fmt(chaos);
+        el.appendChild(s);
+        gridEl.appendChild(el);
+      }
+    }
+    badge.style.left = rect.x + 'px';
+    badge.style.top = Math.max(0, rect.y - 26) + 'px';
+    badge.textContent = st.calibrating ? 'Kalibracja' : st.tab ? `Overlay: zakładka „${st.tab}” (${st.items.length})${st.tabCount > 1 ? ' · Ctrl+Alt+←/→' : ''}` : 'Overlay: brak przedmiotów z pozycją – uruchom Start w aplikacji';
+  }
+
+  window.overlay.onState((s) => { st = s; render(); });
+
+  // Drag to move, handle to resize (calibration only).
+  let drag = null;
+  gridEl.addEventListener('mousedown', (e) => {
+    if (!st || !st.calibrating) return;
+    drag = { mode: e.target.id === 'handle' ? 'resize' : 'move', sx: e.clientX, sy: e.clientY, r: { ...rect } };
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (drag.mode === 'move') { rect.x = drag.r.x + dx; rect.y = drag.r.y + dy; }
+    else { const size = Math.max(60, drag.r.w + Math.max(dx, dy)); rect.w = size; rect.h = size; }
+    render();
+  });
+  window.addEventListener('mouseup', () => { drag = null; });
+  window.addEventListener('keydown', (e) => {
+    if (!st || !st.calibrating) return;
+    const step = e.shiftKey ? 10 : 1;
+    if (e.key === 'ArrowLeft') rect.x -= step;
+    if (e.key === 'ArrowRight') rect.x += step;
+    if (e.key === 'ArrowUp') rect.y -= step;
+    if (e.key === 'ArrowDown') rect.y += step;
+    if (e.key === '+' || e.key === '=') { rect.w += step; rect.h += step; }
+    if (e.key === '-') { rect.w -= step; rect.h -= step; }
+    if (e.key === 'Enter') save();
+    render();
+  });
+  document.getElementById('quad').addEventListener('change', render);
+  function save() { window.overlay.setGrid(rect); window.overlay.done(); rect = null; }
+  document.getElementById('save').addEventListener('click', save);
+  document.getElementById('reset').addEventListener('click', () => { window.overlay.resetGrid(); rect = null; });
+</script>
+</body>
+</html>
