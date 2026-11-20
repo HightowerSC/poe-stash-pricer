@@ -1,6 +1,6 @@
 # PoE Stash Pricer
 
-Aplikacja w przeglądarce (Windows/Linux/macOS), która obserwuje publiczną zakładkę w **Path of Exile 1** i wycenia każdy nowy przedmiot:
+Aplikacja dla Windows i Linux (jeden program, instalator jednym kliknięciem), która obserwuje zakładki skrzyni w **Path of Exile 1** i wycenia każdy nowy przedmiot:
 
 - **waluty, karty, fragmenty, unikaty, gemy, mapy, bazy** – z [poe.ninja](https://poe.ninja/docs/api) (odświeżane co 15 min, z cache),
 - **przedmioty rare** – z porównywalnych ofert na oficjalnym trade site, tak jak Awakened PoE Trade: kluczowe mody z minimum 85% wartości, automatyczne luzowanie zapytania, odrzucanie price-fixingu, przedział cenowy i poziom pewności.
@@ -18,62 +18,57 @@ Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym
 - **Tiery modów** (T1, T2…) na podstawie danych z trade.
 - **Minimalna wartość** – przedmioty tańsze od wpisanego progu (i bez ceny) są wyszarzone z etykietą; można je też ukryć.
 - **Eksport CSV** gotowy do Excela (średniki, przecinek dziesiętny).
+- **Postać** – ekwipunek, gemy i jewele wybranej postaci (jak na poe.ninja), statystyki zsumowane z przedmiotów (życie, ES, odporności z brakami do 75%, atrybuty…) i wycena całego ekwipunku jednym kliknięciem. Wymaga publicznego profilu (albo POESESSID).
+- **Kategorie** – przedmioty posegregowane według rodzaju (waluta, unikaty, rare, jewele, gemy, mapy, do NPC…) albo przedziału ceny, z sumą wartości i podpowiedzią, do której zakładki w grze je odłożyć.
+- **Wszystkie zakładki** – domyślnie wszystkie publiczne zakładki; opcjonalnie wybrane (po przecinku) albo wszystkie, także prywatne, przez POESESSID.
+- **Przeliczanie cen** – przycisk ↻ Przelicz (wszystko albo jeden przedmiot) i automatyczne przeliczanie co X godzin.
 - **Widok zakładek** – siatka 12×12 / 24×24 z ceną na każdym polu (przedmiot lub stack); pozycja przedmiotu („kolumna N, rząd M”) na karcie i w szczegółach.
 - **Overlay w grze** – ceny rysowane na polach skrzynki w przezroczystym oknie (opis niżej).
 - **Doradca craftu** – przycisk „Sprawdź crafty” w szczegółach rare/magic: liczy wolne prefiksy/sufiksy, proponuje bench crafty (wycenione na trade z dodanym modem: cena po, koszt, zysk) oraz orby (aug/regal/exalt – losowe, sam koszt). Koszty benchu są orientacyjne dla 3.30 (`src/core/craft/benchCrafts.ts`).
 - **Specjalne mody i warianty** – wartościowe corrupty (np. +1 do gemów) są szukane na trade w pierwszej kolejności i oznaczone ★. Gdy wariantu unikatu (np. z Voidborna) nie ma na poe.ninja ani w ofertach, aplikacja podaje cenę zwykłej wersji jako **cenę minimalną** (`25c+`) i pisze, co pominięto. Rare bez wyników są szukane bez części modów, a na końcu bez filtrów typu wpływ/ilvl.
 
-## Uruchomienie (Windows i Linux)
+## Instalacja (Windows i Linux) – bez terminala
 
-Aplikacja działa w przeglądarce. Mały lokalny serwer (Node.js) pobiera ceny z poe.ninja i trade, a interfejs otwiera się pod adresem **http://localhost:5317**. Serwer nasłuchuje tylko na Twoim komputerze.
+1. Wejdź na **[Releases](https://github.com/HightowerSC/poe-stash-pricer/releases/latest)** i pobierz plik dla swojego systemu:
+   - **Windows:** `PoE-Stash-Pricer-Setup-….exe` → kliknij dwa razy. Jeśli Windows pokaże „System Windows ochronił ten komputer”, kliknij **Więcej informacji → Uruchom mimo to** (program nie ma płatnego podpisu cyfrowego).
+   - **Linux:** `PoE-Stash-Pricer-….AppImage` → prawy klik → **Właściwości → Uprawnienia → Zezwól na uruchamianie jako program** → kliknij dwa razy.
+2. Przy pierwszym uruchomieniu kreator zapyta o nazwę konta, ligę i zakładki – krok po kroku, z podpowiedziami.
+3. Gotowe. Program sam sprawdza aktualizacje i proponuje instalację nowej wersji.
 
-Wymagane: [Node.js LTS](https://nodejs.org/) (22 lub nowszy) i [Git](https://git-scm.com/).
+To jedna aplikacja (to samo na obu systemach): okno z wyceną, ikona w zasobniku obok zegara i overlay w grze. Ustawienia i historia są zapisywane w folderze `.poe-stash-pricer` w katalogu domowym.
 
-Ten sam kod i te same komendy na każdym systemie. Wklej w terminal (Windows: PowerShell, Linux/macOS: terminal):
+### Dla programistów
 
-```
-git clone https://github.com/HightowerSC/poe-stash-pricer
-cd poe-stash-pricer
-npm install
-npm start
-```
+Wymagane: Node.js 22+ i Git. `npm install`, potem:
 
-`npm start` buduje aplikację, uruchamia serwer i otwiera przeglądarkę. Następnym razem wystarczy `cd poe-stash-pricer` i `npm start`.
+- `npm run app` – aplikacja desktopowa (Electron) z kodu,
+- `npm start` – ten sam program w przeglądarce (http://localhost:5317), bez Electrona,
+- `npm run dev` (hot reload), `npm test`, `npm run typecheck`, `npm run dist` (instalator lokalnie).
 
-Opcjonalnie: `start.bat` (Windows, dwuklik) i `start.sh` (Linux) to tylko skróty, które robią to samo co dwie ostatnie komendy.
-
-Aby wyłączyć – zamknij okno terminala (albo Ctrl+C).
-
-Aktualizacja do nowej wersji: `git pull`, `npm install`, `npm start`.
-
-Ustawienia i historia są zapisywane w folderze `.poe-stash-pricer` w katalogu domowym.
-
-Dla programistów: `npm run dev` (hot reload), `npm test`, `npm run typecheck`.
+Nowa wersja: zmień `version` w `package.json`, zrób tag `vX.Y.Z` i wypchnij go – GitHub Actions zbuduje instalatory i opublikuje Release.
 
 ## Overlay w grze
 
-Przezroczyste okno nad grą, które pokazuje ceny na polach otwartej zakładki. Uruchom aplikację (`npm start`), a w **drugim** terminalu w tym samym folderze:
-
-```
-npm run overlay
-```
-
-Za pierwszym razem pobierze Electron (ok. 100 MB). Komenda jest taka sama na Windows i Linux.
+Przezroczysta warstwa nad grą z cenami na polach otwartej zakładki. Włączasz ją skrótem **Ctrl+Alt+P** albo z ikony w zasobniku („Overlay w grze”).
 
 - Gra musi działać w trybie **Windowed Fullscreen** (borderless), nie w pełnym ekranie.
 - **Ctrl+Alt+K** – kalibracja: przeciągnij złotą ramkę na pola zakładki 12×12, kółkiem w rogu zmień rozmiar (strzałki i +/− do precyzji, Enter zapisuje). Robisz to raz na rozdzielczość.
 - **Ctrl+Alt+←/→** – wybór zakładki. Overlay nie wie, którą zakładkę masz otwartą w grze, bo nie czyta ekranu – wybierasz ją skrótem albo z ikony w zasobniku.
-- **Ctrl+Alt+P** – pokaż/ukryj.
+- ★ przy cenie = wartościowy corrupt, `+` = cena minimalna.
 - Overlay tylko wyświetla: nie czyta ekranu, pamięci ani plików gry i nie wysyła żadnych klawiszy do gry (zgodnie z zasadami GGG dla narzędzi zewnętrznych). Kliknięcia przechodzą przez niego do gry.
 - Linux: działa pod X11 (domyślnie np. w Mint Cinnamon). Pod Wayland przezroczyste okna „zawsze na wierzchu” mogą nie działać.
 
 ## Jak przygotować konto
 
-1. W grze utwórz zakładkę (np. „Inbox”) i ustaw ją jako **Public** – bez ceny.
-2. W aplikacji wpisz nazwę konta z numerem (np. `Exile#1234`) i nazwę zakładki.
-3. Wrzucaj nowe przedmioty do tej zakładki. Trade site pokazuje je z opóźnieniem ok. 5 minut.
+**Sposób 1 – publiczne zakładki (polecany):**
+1. W grze kliknij prawym przyciskiem na zakładkę skrzyni i zaznacz **Public** – bez ceny. Możesz tak ustawić kilka zakładek.
+2. Wrzucaj tam przedmioty. Trade site pokazuje je z opóźnieniem ok. 5 minut.
 
-Dlaczego tak: GGG obecnie nie rejestruje nowych aplikacji OAuth (`account:stashes`), a stary endpoint stash z POESESSID zwraca 403. Szczegóły w raporcie z researchu.
+**Sposób 2 – wszystkie zakładki, także prywatne:** w profilu wybierz „Wszystkie zakładki (POESESSID)” i wklej ciasteczko POESESSID z pathofexile.com. Zostaje tylko na Twoim komputerze. GGG może blokować ten stary endpoint (błąd 403) – wtedy wróć do sposobu 1.
+
+**Zakładka Postać:** na pathofexile.com → My Account → Privacy Settings odznacz „Hide Characters” (albo użyj POESESSID).
+
+Jeśli nic się nie pojawia, pasek stanu podpowie przyczynę, np. że Twoje publiczne przedmioty są w innej lidze.
 
 ## Zasady
 
@@ -94,6 +89,7 @@ Docelowo aplikacja ma urosnąć do **PoE HUB** – jednego miejsca, które pomag
 - `src/core` – logika aplikacji (klienci API, wycena, testy)
 - `src/server` – lokalny serwer HTTP (API + zdarzenia na żywo), zapis ustawień i historii per liga
 - `src/renderer` – interfejs React
-- `overlay` – okno overlay w grze (Electron, osobny pakiet, instalowany tylko przez `npm run overlay`)
+- `desktop` – aplikacja desktopowa (Electron): okno, zasobnik, overlay w grze, aktualizacje
+- `.github/workflows` – testy i budowanie instalatorów
 
 This product isn't affiliated with or endorsed by Grinding Gear Games in any way.

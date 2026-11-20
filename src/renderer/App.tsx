@@ -3,6 +3,7 @@ import type { AppSettings, PricedItem, Profile } from '../shared/types';
 import type { SessionState } from '../shared/api';
 import { Sparkline } from './components/Sparkline';
 import { ProfileForm } from './components/ProfileForm';
+import { Wizard } from './components/Wizard';
 import { ItemCard } from './components/ItemCard';
 import { ItemDetails } from './components/ItemDetails';
 import { StashView } from './components/StashView';
@@ -144,9 +145,11 @@ export function App() {
         <div className="wizard">
           <h1 className="brand">PoE Stash Pricer</h1>
           <p className="muted">
-            {profile ? 'Ustawienia profilu' : 'Witaj! Ustaw swój profil – dane zostają tylko na tym komputerze.'}
+            {profile ? 'Ustawienia profilu' : 'Pierwsze uruchomienie – kilka prostych kroków.'}
           </p>
-          <ProfileForm initial={profile ?? undefined} onSave={saveProfile} onCancel={profile ? () => setEditing(false) : undefined} />
+          {profile
+            ? <ProfileForm initial={profile} onSave={saveProfile} onCancel={() => setEditing(false)} />
+            : <Wizard onDone={async (p) => { await saveProfile(p); void start(false); }} />}
         </div>
       </div>
     );

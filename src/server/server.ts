@@ -148,11 +148,14 @@ server.listen(PORT, HOST, () => {
   console.log(`  Dane zapisywane w:        ${DATA_DIR}`);
   console.log('  Zamknij to okno (albo Ctrl+C), aby wyłączyć.\n');
   console.log("  This product isn't affiliated with or endorsed by Grinding Gear Games in any way.\n");
-  if (process.env.NO_OPEN !== '1') openBrowser(url);
+  if (process.env.NO_OPEN !== '1' && process.env.PRICER_EMBEDDED !== '1') openBrowser(url);
 });
 
 server.on('error', (e: NodeJS.ErrnoException) => {
-  if (e.code === 'EADDRINUSE') {
+  if (e.code === 'EADDRINUSE' && process.env.PRICER_EMBEDDED === '1') {
+    // Desktop app: another copy of the server (e.g. "npm start") already serves the same data – just use it.
+    console.log(`Port ${PORT} jest zajęty – używam działającego serwera.`);
+  } else if (e.code === 'EADDRINUSE') {
     console.log(`Port ${PORT} jest zajęty – aplikacja chyba już działa. Otwórz http://localhost:${PORT}`);
     openBrowser(`http://localhost:${PORT}`);
     setTimeout(() => process.exit(0), 500);

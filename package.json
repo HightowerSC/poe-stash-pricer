@@ -1,10 +1,10 @@
 {
   "name": "poe-stash-pricer",
-  "version": "0.1.0",
-  "description": "Local web app (Windows/Linux/macOS) that watches a Path of Exile 1 public stash tab and prices new items using poe.ninja and the official trade site.",
+  "version": "0.2.0",
+  "description": "PoE Stash Pricer – wycena przedmiotów z Path of Exile 1 (poe.ninja + trade), widok zakładek, postać, overlay w grze. Jedna aplikacja dla Windows i Linux.",
   "license": "MIT",
   "private": true,
-  "main": "build/server/server.js",
+  "main": "desktop/main.cjs",
   "scripts": {
     "preinstall": "node scripts/check-node.cjs",
     "prestart": "node scripts/check-node.cjs",
@@ -15,22 +15,77 @@
     "build:ui": "vite build",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "overlay": "npm --prefix overlay install --no-audit --no-fund && npm --prefix overlay start"
+    "app": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --publish never"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "electron": "45.4.1",
+    "electron-builder": "^26.18.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"
   },
   "dependencies": {
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "electron-updater": "^6.8.11"
   },
   "engines": {
     "node": ">=22"
+  },
+  "author": "HightowerSC",
+  "homepage": "https://github.com/HightowerSC/poe-stash-pricer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HightowerSC/poe-stash-pricer.git"
+  },
+  "build": {
+    "appId": "com.hightowersc.poestashpricer",
+    "productName": "PoE Stash Pricer",
+    "directories": {
+      "buildResources": "assets",
+      "output": "release"
+    },
+    "files": [
+      "desktop/**",
+      "build/**",
+      "dist/**",
+      "package.json",
+      "!build/**/*.test.js"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.png",
+      "artifactName": "PoE-Stash-Pricer-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PoE Stash Pricer"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Game",
+      "artifactName": "PoE-Stash-Pricer-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "HightowerSC",
+        "repo": "poe-stash-pricer",
+        "releaseType": "release"
+      }
+    ]
   }
 }

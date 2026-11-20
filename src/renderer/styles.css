@@ -301,3 +301,18 @@ button:disabled { opacity: .45; cursor: default; }
 .group { display: flex; flex-direction: column; gap: 8px; }
 .group-title { display: flex; gap: 10px; align-items: baseline; width: 100%; background: none; border: none; border-bottom: 1px solid rgba(200,166,90,.25); color: #e2c27a; font: inherit; font-size: 15px; padding: 6px 0; cursor: pointer; text-align: left; }
 .group-title .spacer { flex: 1; }
+
+/* first-run wizard */
+.wizard-steps { display: flex; flex-direction: column; gap: 14px; }
+.steps { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 0; }
+.steps li { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(200,166,90,.25); color: #9a917e; }
+.steps li.on { color: #1a1408; background: #c8a65a; border-color: #c8a65a; font-weight: 600; }
+.steps li.done { color: #7ee08a; border-color: rgba(126,224,138,.4); }
+.step { display: flex; flex-direction: column; gap: 10px; }
+.step h2 { margin: 0; font-size: 20px; color: #e2c27a; }
+.step ul { margin: 0; padding-left: 20px; line-height: 1.6; }
+.step label { display: flex; flex-direction: column; gap: 4px; }
+.step label.check { flex-direction: row; align-items: center; gap: 8px; }
+.choice { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(200,166,90,.25); background: rgba(0,0,0,.25); color: inherit; font: inherit; cursor: pointer; }
+.choice span { font-size: 13px; color: #b9b09c; }
+.choice.on { border-color: #c8a65a; background: rgba(200,166,90,.12); }
