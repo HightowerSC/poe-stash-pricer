@@ -14,6 +14,8 @@ import { parseItemText } from '../core/itemText';
 import type { PriceCheck } from '../shared/types';
 import type { UpgradeWatchState } from '../shared/types';
 import { newFinds, normalizeWatch } from '../core/hub/watch';
+import { bundledCatalog, mergeCatalog, type ChallengeCatalog } from '../core/hub/challengeSource';
+import type { Challenge } from '../core/hub/challenges';
 
 /** Used when the UI runs in a normal browser (design preview, screenshots). */
 export function browserMockApi(): PricerApi {
@@ -72,6 +74,14 @@ export function browserMockApi(): PricerApi {
     async saveChallenges(list) {
       try { localStorage.setItem('pricer-challenges', JSON.stringify(list)); } catch { /* ignore */ }
       return list;
+    },
+    async syncChallenges() {
+      let list: Challenge[] = [];
+      try { list = JSON.parse(localStorage.getItem('pricer-challenges') ?? '[]'); } catch { /* ignore */ }
+      const cat: ChallengeCatalog = { league: 'Covens', source: 'bundled', fetchedAt: new Date().toISOString(), items: bundledCatalog('Covens') ?? [], notes: ['podgląd w przeglądarce'] };
+      list = mergeCatalog(list, cat);
+      try { localStorage.setItem('pricer-challenges', JSON.stringify(list)); } catch { /* ignore */ }
+      return { list, league: 'Covens', source: 'bundled', fetchedAt: cat.fetchedAt, notes: cat.notes };
     },
     async upgradeSearch(slot) {
       return { slot, wants: ['życie 70+', 'fire res 40%+'], total: 42, tradeUrl: 'https://www.pathofexile.com/trade', offers: [35, 48, 60].map((c, i) => ({ chaos: c, amount: c, currency: 'chaos', name: `Demo ${i + 1}`, mods: ['+75 to maximum Life', '+42% to Fire Resistance'] })) };

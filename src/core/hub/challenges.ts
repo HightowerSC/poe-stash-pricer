@@ -6,6 +6,12 @@ export interface Challenge {
   title: string;
   done: boolean;
   notes: string;
+  /** Filled when the list was fetched automatically (pathofexile.com / poedb / bundled). */
+  desc?: string;
+  steps?: string[];
+  current?: number;
+  total?: number;
+  source?: 'official' | 'poedb' | 'bundled';
 }
 
 /** One challenge per line; drops empty lines, counters like "12/40", headers and duplicates. */
@@ -23,6 +29,12 @@ export function parseChallenges(text: string, existing: Challenge[] = []): Chall
 }
 
 const HINTS: [RegExp, string][] = [
+  [/\b(fates?|grim fate|empowered by)\b/i, 'Fate (liga Covens): przed walką z bossem wybierz Fate o wyższym tierze – lepsze nagrody, ale trudniej; zapisz które Fate już zaliczyłeś.'],
+  [/\b(viscera|wickerman|effigy)\b/i, 'Wickerman: odkładaj każdy nowy rodzaj Viscera zamiast sprzedawać – brakujące sprawdź na trade.'],
+  [/\b(threads?|woven)\b/i, 'Threads: zbieraj Thready jednego typu (po 8 na mapę) i rób na T14+ z Atlas Drops ≥100%.'],
+  [/\b(mirage|anomal|nightmare)\b/i, 'Atlas: ustaw drzewko Atlasu pod Mirage/Anomalie/Nightmare i rób je na jednym typie mapy.'],
+  [/\b(voidstones?|pinnacle|guardian)\b/i, 'Voidstone’y/pinnacle: ustaw kolejność bossów – Searing Exarch i Eater of Worlds najpierw, fragmenty do Ubersów kupuj na trade.'],
+  [/\b(act|acts|kitava|pantheon)\b/i, 'Kampania: robi się sama podczas levelowania – przy okazji zabij bossów Panteonu.'],
   [/\b(map|maps|atlas|tier 1[0-6]|t1[0-6])\b/i, 'Mapy: zrób zapas map i Scarabów, rozdaj punkty Atlasu pod tę aktywność, zanim zaczniesz.'],
   [/\b(shaper|elder|maven|sirus|uber|eater|exarch|cortex|synthesis|conqueror|boss|pinnacle)\b/i, 'Bossowie: zbierz fragmenty/inwitacje wcześniej (ceny w kategorii Fragmenty na poe.ninja – często taniej kupić niż farmić).'],
   [/\b(delirium|simulacrum)\b/i, 'Delirium: zbieraj Simulacrum Splintery (300 = Simulacrum) albo kup gotowe Simulacrum.'],
@@ -36,9 +48,10 @@ const HINTS: [RegExp, string][] = [
   [/\b(kill|slay|defeat).*\b(\d{3,}|thousand)\b/i, 'Dużo zabójstw: wybierz szybki clear (Breach/Legion) i odpowiednie Scaraby.'],
 ];
 
-/** "What to prepare" hints for a challenge title; generic, matched by keywords. */
-export function challengeHints(title: string): string[] {
-  return HINTS.filter(([re]) => re.test(title)).map(([, h]) => h).slice(0, 2);
+/** "What to prepare" hints for a challenge (title, description and steps); generic, matched by keywords. */
+export function challengeHints(title: string, desc = '', steps: string[] = []): string[] {
+  const text = [title, desc, ...steps].join(' \n ');
+  return HINTS.filter(([re]) => re.test(text)).map(([, h]) => h).slice(0, 2);
 }
 
 export function progress(list: Challenge[]): { done: number; total: number } {

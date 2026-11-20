@@ -125,8 +125,9 @@ async function handleApi(req: http.IncomingMessage, res: http.ServerResponse, ur
         return json(res, 200, await service.checkText(String(text ?? '')));
       }
       case 'GET /api/checks': return json(res, 200, service.getChecks());
-      case 'GET /api/challenges': return json(res, 200, service.getChallenges());
-      case 'POST /api/challenges': return json(res, 200, service.saveChallenges((await readBody(req)).list));
+      case 'GET /api/challenges': return json(res, 200, await service.getChallenges());
+      case 'POST /api/challenges': return json(res, 200, await service.saveChallenges((await readBody(req)).list));
+      case 'POST /api/challenges/sync': return json(res, 200, await service.syncChallenges(!!(await readBody(req)).force));
       case 'POST /api/upgrade': {
         const { slot } = await readBody(req);
         return json(res, 200, await service.upgradeSearch(String(slot ?? '')));

@@ -375,6 +375,11 @@ button:disabled { opacity: .45; cursor: default; }
 .challenge-row .grow { flex: 1; }
 .challenge-hints { margin: 4px 0; padding-left: 18px; font-size: 13px; opacity: .85; list-style: none; }
 .challenge-notes { width: 100%; box-sizing: border-box; margin-top: 4px; }
+.challenge-desc { margin: 2px 0 0 26px; }
+.challenge-steps { margin: 2px 0 0 26px; }
+.challenge-steps ul { margin: 4px 0; padding-left: 18px; }
+.challenge-manual { margin-top: 8px; }
+.challenge-manual textarea { width: 100%; box-sizing: border-box; margin: 6px 0; }
 .hub-watch .inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .hub-watch input[type=number] { width: 80px; }
 .hub-watch label.check { display: flex; flex-direction: row; align-items: center; gap: 6px; color: var(--text); }
