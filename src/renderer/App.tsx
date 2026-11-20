@@ -25,6 +25,7 @@ export function App() {
   const [editing, setEditing] = useState(false);
   const [items, setItems] = useState<PricedItem[]>([]);
   const [status, setStatus] = useState<{ text: string; error?: boolean }>({ text: 'Zatrzymane' });
+  const [tradeLimit, setTradeLimit] = useState<{ waitSeconds: number; queued: number }>({ waitSeconds: 0, queued: 0 });
   const [running, setRunning] = useState(false);
   const [league, setLeague] = useState('');
   const [divine, setDivine] = useState<number | null>(null);
@@ -53,6 +54,7 @@ export function App() {
     void window.pricer.getItems().then(setItems);
     const offItems = window.pricer.onItems(setItems);
     const offStatus = window.pricer.onStatus(setStatus);
+    const offLimit = window.pricer.onTradeLimit?.(setTradeLimit) ?? (() => undefined);
     void window.pricer.getChecks().then(setChecks).catch(() => undefined);
     const offChecks = window.pricer.onChecks((c) => {
       setChecks(c);
@@ -63,7 +65,7 @@ export function App() {
       setSession(st);
       if (st.divineRate) setDivine(st.divineRate);
     });
-    return () => { offItems(); offStatus(); offSession(); offChecks(); };
+    return () => { offItems(); offStatus(); offLimit(); offSession(); offChecks(); };
   }, []);
 
   const profile = settings?.profiles.find((p) => p.id === settings.activeProfileId) ?? null;
@@ -217,6 +219,11 @@ export function App() {
       <div className={`status-line ${status.error ? 'error' : ''}`}>
         <span className={`dot ${running ? 'on' : ''}`} />
         {status.text}
+        {tradeLimit.waitSeconds > 0 && (
+          <span className="trade-wait" title="pathofexile.com ogranicza liczbę zapytań – aplikacja sama czeka, żeby nie dostać blokady. Wycena Ctrl+C idzie pierwsza.">
+            ⏳ czekam na limit trade, {tradeLimit.waitSeconds} s{tradeLimit.queued > 1 ? ` (w kolejce: ${tradeLimit.queued})` : ''}
+          </span>
+        )}
         {session && session.summary.itemCount > 0 && <span className="muted"> · w tej sesji: {session.summary.itemCount} przedm., {formatPrice(session.summary.totalChaos, currency, divine)}</span>}
         {toast && <span className="toast">{toast}</span>}
       </div>

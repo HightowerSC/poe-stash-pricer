@@ -34,13 +34,15 @@ import { runLoot, summarizeStrategies } from './market/farm';
 import { decodePob, parsePobXml, pobRawUrl, type PobItem } from './hub/pob';
 import type { PoeItem, ShoppingList, ShoppingRow } from '../shared/types';
 import { buildCharacter, demoCharacter, demoCharacters, sortCharacters, toSummary } from './character';
+import { tradeGate, withTradePriority, type TradeLimitStatus } from './tradeLimiter';
 
 export type ServiceEvent =
   | { type: 'checks'; payload: PriceCheck[] }
   | { type: 'items'; payload: PricedItem[] }
   | { type: 'session'; payload: SessionState }
   | { type: 'status'; payload: { text: string; error?: boolean } }
-  | { type: 'notify'; payload: { title: string; body: string } };
+  | { type: 'notify'; payload: { title: string; body: string } }
+  | { type: 'tradeLimit'; payload: TradeLimitStatus };
 
 const safe = (league: string) => league.replace(/[^\w-]/g, '_');
 
@@ -73,6 +75,7 @@ export class PricerService {
   constructor(private readonly dataDir: string) {
     fs.mkdirSync(dataDir, { recursive: true });
     this.scheduleUpgradeWatch();
+    tradeGate.onStatus((payload) => this.emit({ type: 'tradeLimit', payload }));
   }
 
   on(cb: (e: ServiceEvent) => void): () => void {
@@ -453,12 +456,12 @@ export class PricerService {
     this.watchTimer = null;
     const { settings } = this.getUpgradeWatch();
     if (!settings.enabled) return;
-    this.watchTimer = setInterval(() => { void this.runUpgradeWatch(false); }, settings.everyMinutes * 60_000);
+    this.watchTimer = setInterval(() => { void withTradePriority('background', () => this.runUpgradeWatch(false)); }, settings.everyMinutes * 60_000);
     this.watchTimer.unref?.();
   }
 
   /**
-   * One pass: re-read the character, search trade for its weakest slots (max 3, a few seconds apart)
+   * One pass: re-read the character, search trade for its weakest slots (max 3; the trade gate paces them)
    * and notify about offers within budget. manual=false (timer) never starts the app by itself.
    */
   async runUpgradeWatch(manual: boolean): Promise<UpgradeWatchState> {
@@ -476,7 +479,6 @@ export class PricerService {
       const slots = diagnose(view).weakestSlots;
       const results: UpgradeResult[] = [];
       for (const slot of slots) {
-        if (results.length && !this.demo) await new Promise((r) => setTimeout(r, 3000));
         try { results.push(await this.upgradeSearch(slot)); } catch { /* one slot failing does not stop the rest */ }
       }
       const at = new Date().toISOString();
@@ -642,7 +644,7 @@ export class PricerService {
     return this.flips;
   }
 
-  /** Reads the bulk exchange for each currency in both directions (≈2 s apart, trade limits). */
+  /** Reads the bulk exchange for each currency in both directions (paced by the shared trade gate, low priority). */
   async scanFlips(): Promise<{ at: string | null; rows: FlipRow[]; running: boolean }> {
     if (this.flips.running) return this.flips;
     this.flips.running = true;
@@ -665,10 +667,8 @@ export class PricerService {
           this.status(`Flip: sprawdzam ${name} (${i}/${FLIP_CURRENCIES.length})…`);
           if (id === 'chaos') continue;
           try {
-            const sellers = await trade.exchange(this.league, id, 'chaos', realm);
-            await new Promise((r) => setTimeout(r, 2000));
-            const buyers = await trade.exchange(this.league, 'chaos', id, realm);
-            await new Promise((r) => setTimeout(r, 2000));
+            const sellers = await withTradePriority('background', () => trade.exchange(this.league, id, 'chaos', realm));
+            const buyers = await withTradePriority('background', () => trade.exchange(this.league, 'chaos', id, realm));
             rows.push(flipRow(id, name, sellers, buyers, engine.chaosRate(id) ?? engine.chaosRate(name)));
           } catch (e) {
             this.status(`Flip: ${name} – ${msg(e)}`, true);
@@ -703,7 +703,8 @@ export class PricerService {
       const engine = this.engine;
       if (!engine) throw new Error('Nie udało się uruchomić wyceny.');
       this.status(`Wyceniam skopiowany przedmiot: ${item.name || item.typeLine}…`);
-      price = await engine.price(item);
+      // The user waits for this one: it goes before background jobs in the trade queue.
+      price = await withTradePriority('interactive', () => engine.price(item));
       this.status(`Wyceniono: ${item.name || item.typeLine} – ${price.chaos == null ? 'brak ceny' : `${Math.round(price.chaos)}c`}`);
     }
     const check: PriceCheck = { at: new Date().toISOString(), item, price, advice: advise(item, price, { sellMinChaos: 5 }) };
@@ -727,7 +728,8 @@ export class PricerService {
     if (!engine || !this.profile) throw new Error('Najpierw kliknij Start – przeliczanie korzysta z cen z trade i poe.ninja.');
     if (this.repricing) throw new Error('Przeliczanie już trwa.');
     const targets = this.items.filter((p) => p.present !== false && (!ids || ids.includes(p.item.id)));
-    void this.repriceItems(targets, engine, this.profile);
+    const profile = this.profile;
+    void withTradePriority('background', () => this.repriceItems(targets, engine, profile));
     return { queued: targets.length };
   }
 

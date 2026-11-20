@@ -87,7 +87,8 @@ Jeśli coś nie działa, pasek stanu pod kafelkami podaje przyczynę (np. nieakt
 
 - Aplikacja nie dotyka klienta gry ani jego plików, nie czyta ekranu ani pamięci gry i nie wysyła klawiszy do gry. Ze schowka bierze tylko tekst przedmiotu skopiowanego w grze przez Ctrl+C (resztę ignoruje); można to wyłączyć w zasobniku.
 - Twoje przedmioty pochodzą z Twojej skrzyni (serwer GGG, POESESSID) albo z Ctrl+C. Trade służy wyłącznie do porównania z ofertami innych graczy.
-- Szanuje limity: User-Agent z kontaktem, max 2 równoległe zapytania do poe.ninja, odczyt nagłówków `X-Rate-Limit-*` trade i pauza przed przekroczeniem.
+- Szanuje limity: User-Agent z kontaktem, max 2 równoległe zapytania do poe.ninja. Gdzie wystarcza poe.ninja (waluta, karty, gemy, mapy, większość unikatów), trade nie jest pytany wcale.
+- **Limit zapytań trade (od 0.12.0):** wszystkie zapytania do pathofexile.com (wycena Ctrl+C, skrzynia, przeliczanie, ulepszenia i ich pilnowanie, flip, doradca craftu, lista zakupów z PoB, postać) idą przez jedną wspólną kolejkę. Kolejka czyta limity z nagłówków `X-Rate-Limit-*` (osobno wyszukiwanie, pobieranie ofert, wymiana walut), zostawia zapas na Twoją przeglądarkę, przy 429 czeka tyle, ile każe `Retry-After`, a wycena Ctrl+C zawsze idzie przed zadaniami w tle. Takie same zapytania z ostatnich minut są brane z pamięci. Gdy aplikacja czeka, na pasku stanu widać „⏳ czekam na limit trade, X s”.
 
 ## PoE HUB (od wersji 0.4.0, rozbudowany w 0.5.0)
 

@@ -4,6 +4,7 @@ import type { PoeItem, PriceEstimate, PricedItem, Profile } from '../shared/type
 import type { PricingEngine } from './engine';
 import type { StashSource } from './stashSource';
 import { tabFilter } from './config';
+import { withTradePriority } from './tradeLimiter';
 
 export interface WatcherEvents {
   onItems(items: PricedItem[]): void;
@@ -85,7 +86,7 @@ export class StashWatcher {
   /** One unusual item must never stop the rest from being priced. */
   private async safePrice(item: PoeItem): Promise<PriceEstimate> {
     try {
-      return await this.engine.price(item);
+      return await withTradePriority('background', () => this.engine.price(item));
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       console.error(`Błąd wyceny "${item.name || item.typeLine}":`, e);

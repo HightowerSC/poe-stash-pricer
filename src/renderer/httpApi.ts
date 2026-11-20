@@ -40,12 +40,14 @@ export function httpApi(): PricerApi {
   const sessionL = new Set<(s: SessionState) => void>();
   const checksL = new Set<(c: any[]) => void>();
   const statusL = new Set<(s: { text: string; error?: boolean }) => void>();
+  const limitL = new Set<(s: { waitSeconds: number; queued: number }) => void>();
 
   const events = new EventSource('/api/events');
   events.addEventListener('items', (e) => itemL.forEach((l) => l(JSON.parse((e as MessageEvent).data))));
   events.addEventListener('session', (e) => sessionL.forEach((l) => l(JSON.parse((e as MessageEvent).data))));
   events.addEventListener('checks', (e) => checksL.forEach((l) => l(JSON.parse((e as MessageEvent).data))));
   events.addEventListener('status', (e) => statusL.forEach((l) => l(JSON.parse((e as MessageEvent).data))));
+  events.addEventListener('tradeLimit', (e) => limitL.forEach((l) => l(JSON.parse((e as MessageEvent).data))));
   events.addEventListener('notify', (e) => {
     const n = JSON.parse((e as MessageEvent).data) as { title: string; body: string };
     if ('Notification' in window && Notification.permission === 'granted') new Notification(n.title, { body: n.body });
@@ -103,5 +105,6 @@ export function httpApi(): PricerApi {
     onItems(cb) { itemL.add(cb); return () => { itemL.delete(cb); }; },
     onSession(cb) { sessionL.add(cb); return () => { sessionL.delete(cb); }; },
     onStatus(cb) { statusL.add(cb); return () => { statusL.delete(cb); }; },
+    onTradeLimit(cb) { limitL.add(cb); return () => { limitL.delete(cb); }; },
   };
 }
