@@ -4,13 +4,13 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "rootDir": "src",
-    "outDir": "dist-electron",
+    "outDir": "build",
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "lib": ["ES2022", "DOM"],
     "types": ["node"]
   },
-  "include": ["src/main", "src/core", "src/shared"],
+  "include": ["src/server", "src/core", "src/shared"],
   "exclude": ["**/*.test.ts"]
 }

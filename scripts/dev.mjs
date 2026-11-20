@@ -1,16 +1,21 @@
-// Dev mode: compile the main process, start the Vite dev server, then launch Electron pointing at it.
+// Dev mode: compile and run the local API server, plus the Vite dev server (hot reload) proxying /api to it.
 import { spawn, execSync } from 'node:child_process';
 import { createServer } from 'vite';
-import electronPath from 'electron';
 
-execSync('npx tsc -p tsconfig.main.json', { stdio: 'inherit' });
-const server = await createServer({ configFile: 'vite.config.mts' });
-await server.listen();
-const url = server.resolvedUrls.local[0];
-console.log(`Vite: ${url}`);
+execSync('npx tsc -p tsconfig.server.json', { stdio: 'inherit' });
+const api = spawn(process.execPath, ['build/server/server.js'], { stdio: 'inherit', env: { ...process.env, NO_OPEN: '1' } });
 
-const child = spawn(electronPath, ['.'], { stdio: 'inherit', env: { ...process.env, VITE_DEV_SERVER_URL: url } });
-child.on('close', async () => {
-  await server.close();
-  process.exit(0);
+const vite = await createServer({
+  configFile: 'vite.config.mts',
+  server: { open: true, proxy: { '/api': 'http://127.0.0.1:5317' } },
 });
+await vite.listen();
+vite.printUrls();
+
+const stop = async () => {
+  api.kill();
+  await vite.close();
+  process.exit(0);
+};
+process.on('SIGINT', stop);
+process.on('SIGTERM', stop);

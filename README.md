@@ -1,6 +1,6 @@
 # PoE Stash Pricer
 
-Desktopowa aplikacja (Windows/macOS/Linux), która obserwuje publiczną zakładkę w **Path of Exile 1** i wycenia każdy nowy przedmiot:
+Aplikacja w przeglądarce (Windows/Linux/macOS), która obserwuje publiczną zakładkę w **Path of Exile 1** i wycenia każdy nowy przedmiot:
 
 - **waluty, karty, fragmenty, unikaty, gemy, mapy, bazy** – z [poe.ninja](https://poe.ninja/docs/api) (odświeżane co 15 min, z cache),
 - **przedmioty rare** – z porównywalnych ofert na oficjalnym trade site, tak jak Awakened PoE Trade: kluczowe mody z minimum 85% wartości, automatyczne luzowanie zapytania, odrzucanie price-fixingu, przedział cenowy i poziom pewności.
@@ -18,18 +18,35 @@ Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym
 - **Tiery modów** (T1, T2…) na podstawie danych z trade.
 - **Eksport CSV** gotowy do Excela (średniki, przecinek dziesiętny).
 
-## Uruchomienie
+## Uruchomienie (Windows i Linux)
 
-Wymagany Node.js 22 LTS lub nowszy.
+Aplikacja działa w przeglądarce. Mały lokalny serwer (Node.js) pobiera ceny z poe.ninja i trade, a interfejs otwiera się pod adresem **http://localhost:5317**. Serwer nasłuchuje tylko na Twoim komputerze.
 
-```bash
-npm install
-npm run dev      # tryb deweloperski (Vite + Electron)
-npm start        # build i uruchomienie
-npm test         # testy jednostkowe
+Wymagane: [Node.js LTS](https://nodejs.org/) (20 lub nowszy) i [Git](https://git-scm.com/).
+
+**Windows** (PowerShell):
+
+```powershell
+git clone https://github.com/HightowerSC/poe-stash-pricer
+cd poe-stash-pricer
+.\start.bat
 ```
 
-Przycisk **Demo** pokazuje przykładowe przedmioty bez łączenia się z API.
+**Linux** (terminal):
+
+```bash
+git clone https://github.com/HightowerSC/poe-stash-pricer
+cd poe-stash-pricer
+./start.sh
+```
+
+Przy pierwszym uruchomieniu skrypt instaluje biblioteki (ok. minuty), potem buduje aplikację i otwiera przeglądarkę. Kolejne razy: kliknij dwukrotnie `start.bat` (Windows) albo uruchom `./start.sh` (Linux). Aby wyłączyć – zamknij okno terminala.
+
+Aktualizacja do nowej wersji: `git pull`, potem znowu `start.bat` / `./start.sh`.
+
+Ustawienia i historia są zapisywane w folderze `.poe-stash-pricer` w katalogu domowym.
+
+Dla programistów: `npm run dev` (hot reload), `npm test`, `npm run typecheck`.
 
 ## Jak przygotować konto
 
@@ -46,8 +63,8 @@ Dlaczego tak: GGG obecnie nie rejestruje nowych aplikacji OAuth (`account:stashe
 
 ## Struktura
 
-- `src/core` – logika bez Electrona (klienci API, wycena, testy)
-- `src/main` – proces główny Electron, zapis ustawień i historii per liga
+- `src/core` – logika aplikacji (klienci API, wycena, testy)
+- `src/server` – lokalny serwer HTTP (API + zdarzenia na żywo), zapis ustawień i historii per liga
 - `src/renderer` – interfejs React
 
 This product isn't affiliated with or endorsed by Grinding Gear Games in any way.

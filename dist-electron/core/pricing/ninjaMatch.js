@@ -1,0 +1,138 @@
+"use strict";
+// Matches one item against poe.ninja rows: currency-like items, uniques, gems, maps and bases.
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.round = exports.NinjaIndex = void 0;
+exports.linkCount = linkCount;
+const classify_1 = require("./classify");
+function linkCount(item) {
+    if (!item.sockets?.length)
+        return 0;
+    const groups = new Map();
+    for (const s of item.sockets)
+        groups.set(s.group, (groups.get(s.group) ?? 0) + 1);
+    return Math.max(...groups.values());
+}
+function prop(item, name) {
+    const p = item.properties?.find((x) => x.name === name);
+    const raw = p?.values?.[0]?.[0];
+    if (!raw)
+        return undefined;
+    const n = parseInt(raw.replace(/[^\d]/g, ''), 10);
+    return Number.isFinite(n) ? n : undefined;
+}
+class NinjaIndex {
+    byName = new Map();
+    clusterRows = [];
+    constructor(rows) {
+        this.clusterRows = rows.filter((r) => r.category === 'ClusterJewel');
+        for (const r of rows) {
+            const key = r.name.toLowerCase();
+            const list = this.byName.get(key) ?? [];
+            list.push(r);
+            this.byName.set(key, list);
+        }
+    }
+    get size() {
+        return this.byName.size;
+    }
+    /**
+     * Normal/magic bases worth crafting on: poe.ninja's BaseType table lists them by item level (82+)
+     * and influence. Picks the row with the highest item level not above ours.
+     */
+    priceBase(item) {
+        const base = item.baseType || item.typeLine;
+        const variant = (0, classify_1.ninjaInfluenceVariant)(item);
+        const rows = (this.byName.get(base.toLowerCase()) ?? []).filter((r) => r.category === 'BaseType' && (r.variant ?? null) === variant && (r.levelRequired ?? 0) <= item.ilvl);
+        if (!rows.length)
+            return null;
+        const row = rows.reduce((best, r) => ((r.levelRequired ?? 0) > (best.levelRequired ?? 0) ? r : best));
+        return fromRow(item, row, `Baza ilvl ${row.levelRequired ?? '?'}${variant ? `, ${variant}` : ''}`);
+    }
+    /** Normal/magic cluster jewels: matched by enchant, passive count and item level. */
+    priceCluster(item) {
+        const info = (0, classify_1.clusterInfo)(item);
+        if (!info.enchant)
+            return null;
+        const wanted = simplify(info.enchant);
+        const rows = this.clusterRows.filter((r) => {
+            if ((r.levelRequired ?? 0) > item.ilvl)
+                return false;
+            if (info.passives && r.variant && !r.variant.startsWith(`${info.passives} `))
+                return false;
+            const name = simplify(r.name);
+            return name.includes(wanted) || wanted.includes(name);
+        });
+        if (!rows.length)
+            return null;
+        const row = rows.reduce((best, r) => ((r.levelRequired ?? 0) > (best.levelRequired ?? 0) ? r : best));
+        return fromRow(item, row, `Cluster ${info.passives} pasywek, ilvl ${row.levelRequired ?? '?'}`);
+    }
+    /** Returns null when poe.ninja has no row for this item (the caller then uses the trade site). */
+    price(item) {
+        const isUnique = item.frameType === 3 || item.frameType === 9;
+        const isGem = item.frameType === 4;
+        const key = (isUnique ? item.name : item.typeLine || item.baseType).toLowerCase();
+        // Bases and cluster jewels have their own matchers (item level, influence, enchant).
+        let candidates = this.byName.get(key)?.filter((c) => c.category !== 'BaseType' && c.category !== 'ClusterJewel');
+        if (!candidates?.length)
+            return null;
+        if (isUnique) {
+            const links = linkCount(item);
+            const wanted = links >= 5 ? links : 0;
+            const exact = candidates.filter((c) => (c.links ?? 0) === wanted);
+            if (exact.length)
+                candidates = exact;
+            if (item.corrupted !== undefined) {
+                const byCorr = candidates.filter((c) => c.corrupted === undefined || !!c.corrupted === !!item.corrupted);
+                if (byCorr.length)
+                    candidates = byCorr;
+            }
+        }
+        if (isGem) {
+            const level = prop(item, 'Level') ?? 1;
+            const quality = prop(item, 'Quality') ?? 0;
+            const corrupted = !!item.corrupted;
+            // Closest gem row by level, then quality, preferring the same corruption state.
+            candidates = [...candidates].sort((a, b) => gemDistance(a, level, quality, corrupted) - gemDistance(b, level, quality, corrupted));
+            candidates = candidates.slice(0, 1);
+        }
+        // Many rows left (e.g. variants): take the cheapest, so we never overprice.
+        const row = candidates.reduce((min, r) => (r.chaosValue < min.chaosValue ? r : min));
+        const qty = item.stackSize ?? 1;
+        const listings = row.listingCount ?? row.count ?? 0;
+        const confidence = listings >= 20 ? 'high' : listings >= 5 ? 'medium' : 'low';
+        const unit = row.chaosValue;
+        return {
+            itemId: item.id,
+            source: 'poe.ninja',
+            chaos: (0, exports.round)(unit * qty),
+            low: (0, exports.round)(unit * qty * 0.9),
+            high: (0, exports.round)(unit * qty * 1.1),
+            confidence,
+            sampleSize: listings,
+            change7d: row.change7d,
+            note: qty > 1 ? `${qty} × ${(0, exports.round)(unit)}c (${row.category})` : `${row.category}${row.variant ? `, ${row.variant}` : ''}`,
+        };
+    }
+}
+exports.NinjaIndex = NinjaIndex;
+function fromRow(item, row, note) {
+    const listings = row.listingCount ?? row.count ?? 0;
+    return {
+        itemId: item.id,
+        source: 'poe.ninja',
+        chaos: (0, exports.round)(row.chaosValue),
+        low: (0, exports.round)(row.chaosValue * 0.85),
+        high: (0, exports.round)(row.chaosValue * 1.1),
+        confidence: listings >= 20 ? 'high' : listings >= 5 ? 'medium' : 'low',
+        sampleSize: listings,
+        note,
+        change7d: row.change7d,
+    };
+}
+const simplify = (s) => s.toLowerCase().replace(/[\d%+#.]/g, '').replace(/\s+/g, ' ').trim();
+function gemDistance(r, level, quality, corrupted) {
+    return Math.abs((r.gemLevel ?? 1) - level) * 10 + Math.abs((r.gemQuality ?? 0) - quality) + (!!r.corrupted !== corrupted ? 50 : 0);
+}
+const round = (n) => Math.round(n * 100) / 100;
+exports.round = round;
