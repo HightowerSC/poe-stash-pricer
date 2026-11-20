@@ -458,3 +458,27 @@ html.readonly .topbar .btn, html.readonly .farm .btn, html.readonly .challenges 
   .shortcut-row { grid-template-columns: 1fr; }
   .sc-actions { justify-content: flex-start; min-width: 0; }
 }
+
+/* ---------- Scrolling (0.13.1) ----------
+   The whole window scrolls as one page, so every view (Postać, Rynek, Farma, Challenge,
+   settings, the stash image) can always be scrolled to the end, also in small windows.
+   The details panel stays in view while scrolling (sticky). */
+html, body { height: auto; min-height: 100%; overflow-y: auto; }
+#root { height: auto; min-height: 100vh; }
+.app { height: auto; min-height: 100vh; }
+.topbar { position: sticky; top: 0; z-index: 20; flex-wrap: wrap; gap: 8px; backdrop-filter: blur(6px); }
+.actions { flex-wrap: wrap; }
+.toolbar { flex-wrap: wrap; }
+.seg.view-switch { flex-wrap: wrap; }
+.view-switch button { white-space: nowrap; }
+.content { overflow: visible; align-items: flex-start; flex: 1 0 auto; }
+.content > * { min-width: 0; }
+.grid, .stash { overflow: visible; }
+.empty { min-height: 260px; align-self: stretch; }
+.details { position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow: auto; }
+.stash-frame { width: min(100%, 720px); }
+.stash-frame.big { width: min(100%, 1100px); }
+@media (max-width: 900px) {
+  .content { flex-direction: column; align-items: stretch; }
+  .details { position: static; width: auto; max-height: none; }
+}
