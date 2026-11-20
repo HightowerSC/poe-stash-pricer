@@ -1,0 +1,152 @@
+import { useEffect, useMemo, useState } from 'react';
+import type { AppSettings, PricedItem, Profile } from '../shared/types';
+import { ProfileForm } from './components/ProfileForm';
+import { ItemCard } from './components/ItemCard';
+import { ItemDetails } from './components/ItemDetails';
+import { formatPrice } from './format';
+
+type SortKey = 'value' | 'newest';
+
+export function App() {
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [items, setItems] = useState<PricedItem[]>([]);
+  const [status, setStatus] = useState<{ text: string; error?: boolean }>({ text: 'Zatrzymane' });
+  const [running, setRunning] = useState(false);
+  const [league, setLeague] = useState('');
+  const [divine, setDivine] = useState<number | null>(null);
+  const [selected, setSelected] = useState<PricedItem | null>(null);
+  const [sort, setSort] = useState<SortKey>('value');
+  const [filter, setFilter] = useState('');
+
+  useEffect(() => {
+    void window.pricer.getSettings().then(setSettings);
+    void window.pricer.getItems().then(setItems);
+    const offItems = window.pricer.onItems(setItems);
+    const offStatus = window.pricer.onStatus(setStatus);
+    return () => { offItems(); offStatus(); };
+  }, []);
+
+  const profile = settings?.profiles.find((p) => p.id === settings.activeProfileId) ?? null;
+
+  const visible = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const list = items.filter((i) => !q || `${i.item.name} ${i.item.typeLine}`.toLowerCase().includes(q));
+    return [...list].sort((a, b) =>
+      sort === 'value' ? (b.price.chaos ?? -1) - (a.price.chaos ?? -1) : b.firstSeen.localeCompare(a.firstSeen),
+    );
+  }, [items, sort, filter]);
+
+  const total = items.reduce((s, i) => s + (i.price.chaos ?? 0), 0);
+  const currency = profile?.displayCurrency ?? 'chaos';
+
+  async function saveProfile(p: Profile) {
+    const others = settings?.profiles.filter((x) => x.id !== p.id) ?? [];
+    const next: AppSettings = { activeProfileId: p.id, profiles: [...others, p] };
+    await window.pricer.saveSettings(next);
+    setSettings(next);
+    setEditing(false);
+  }
+
+  async function start(demo: boolean) {
+    try {
+      const r = await window.pricer.start(demo);
+      setLeague(r.league);
+      setDivine(r.divineRate);
+      setRunning(true);
+    } catch (e) {
+      setStatus({ text: e instanceof Error ? e.message : String(e), error: true });
+    }
+  }
+
+  async function stop() {
+    await window.pricer.stop();
+    setRunning(false);
+    setStatus({ text: 'Zatrzymane' });
+  }
+
+  if (!settings) return <div className="splash">Wczytywanie…</div>;
+
+  if (!profile || editing) {
+    return (
+      <div className="wizard-page">
+        <div className="wizard">
+          <h1 className="brand">PoE Stash Pricer</h1>
+          <p className="muted">
+            {profile ? 'Ustawienia profilu' : 'Witaj! Ustaw swój profil – dane zostają tylko na tym komputerze.'}
+          </p>
+          <ProfileForm initial={profile ?? undefined} onSave={saveProfile} onCancel={profile ? () => setEditing(false) : undefined} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div className="brand-row">
+          <span className="brand">PoE Stash Pricer</span>
+          <span className="chip">{league || (profile.league === 'auto' ? 'liga: auto' : profile.league)}</span>
+          <span className="chip subtle">{profile.accountName}</span>
+        </div>
+        <div className="actions">
+          {running ? (
+            <button className="btn" onClick={stop}>Zatrzymaj</button>
+          ) : (
+            <>
+              <button className="btn primary" onClick={() => start(false)}>Start</button>
+              <button className="btn ghost" onClick={() => start(true)}>Demo</button>
+            </>
+          )}
+          <button className="btn ghost" onClick={() => setEditing(true)} aria-label="Ustawienia">⚙ Ustawienia</button>
+        </div>
+      </header>
+
+      <section className="stats">
+        <Stat label="Wartość nowych przedmiotów" value={formatPrice(total, currency, divine)} />
+        <Stat label="Przedmiotów" value={String(items.length)} />
+        <Stat label="Kurs divine" value={divine ? `${Math.round(divine)}c` : '—'} />
+        <div className={`status ${status.error ? 'error' : ''}`}>
+          <span className={`dot ${running ? 'on' : ''}`} />
+          {status.text}
+        </div>
+      </section>
+
+      <section className="toolbar">
+        <h2>Nowe przedmioty</h2>
+        <input className="search" placeholder="Szukaj…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <div className="seg">
+          <button className={sort === 'value' ? 'on' : ''} onClick={() => setSort('value')}>Najdroższe</button>
+          <button className={sort === 'newest' ? 'on' : ''} onClick={() => setSort('newest')}>Najnowsze</button>
+        </div>
+      </section>
+
+      <main className="content">
+        {visible.length === 0 ? (
+          <div className="empty">
+            <p>Brak przedmiotów.</p>
+            <p className="muted">Kliknij <b>Start</b>, aby obserwować publiczną zakładkę, albo <b>Demo</b>, aby zobaczyć przykład.</p>
+          </div>
+        ) : (
+          <div className="grid">
+            {visible.map((p) => (
+              <ItemCard key={p.item.id} data={p} currency={currency} divine={divine} onClick={() => setSelected(p)} active={selected?.item.id === p.item.id} />
+            ))}
+          </div>
+        )}
+        {selected && <ItemDetails data={selected} currency={currency} divine={divine} onClose={() => setSelected(null)} />}
+      </main>
+
+      <footer className="footer">This product isn't affiliated with or endorsed by Grinding Gear Games in any way.</footer>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="stat">
+      <div className="stat-value">{value}</div>
+      <div className="stat-label">{label}</div>
+    </div>
+  );
+}

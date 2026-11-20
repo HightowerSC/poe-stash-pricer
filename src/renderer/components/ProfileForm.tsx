@@ -1,0 +1,94 @@
+import { useEffect, useState } from 'react';
+import type { League, Profile } from '../../shared/types';
+import { newProfile, validateProfile } from '../../core/config';
+
+interface Props {
+  initial?: Profile;
+  onSave(p: Profile): void;
+  onCancel?: () => void;
+}
+
+export function ProfileForm({ initial, onSave, onCancel }: Props) {
+  const [p, setP] = useState<Profile>(initial ?? newProfile());
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    void window.pricer.listLeagues().then(setLeagues);
+  }, []);
+
+  const set = <K extends keyof Profile>(k: K, v: Profile[K]) => setP({ ...p, [k]: v });
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const errs = validateProfile(p);
+    setErrors(errs);
+    if (errs.length === 0) onSave({ ...p, accountName: p.accountName.trim() });
+  }
+
+  return (
+    <form className="form" onSubmit={submit}>
+      <label>
+        Nazwa profilu
+        <input value={p.name} onChange={(e) => set('name', e.target.value)} />
+      </label>
+      <div className="row">
+        <label>
+          Platforma
+          <select value={p.realm} onChange={(e) => set('realm', e.target.value as Profile['realm'])}>
+            <option value="pc">PC</option>
+            <option value="xbox">Xbox</option>
+            <option value="sony">PlayStation</option>
+          </select>
+        </label>
+        <label className="grow">
+          Konto PoE (z numerem)
+          <input placeholder="Exile#1234" value={p.accountName} onChange={(e) => set('accountName', e.target.value)} />
+        </label>
+      </div>
+      <div className="row">
+        <label className="grow">
+          Liga
+          <select value={p.league} onChange={(e) => set('league', e.target.value)}>
+            <option value="auto">Automatycznie – bieżąca liga</option>
+            {leagues.map((l) => <option key={l.id} value={l.id}>{l.name}{l.current ? ' (bieżąca)' : ''}</option>)}
+            {p.league !== 'auto' && !leagues.some((l) => l.id === p.league) && <option value={p.league}>{p.league}</option>}
+          </select>
+        </label>
+        {p.league === 'auto' && (
+          <label className="check">
+            <input type="checkbox" checked={p.hardcore} onChange={(e) => set('hardcore', e.target.checked)} />
+            Hardcore
+          </label>
+        )}
+      </div>
+      <label>
+        Obserwowana zakładka (publiczna)
+        <input placeholder="np. Inbox – puste = wszystkie publiczne" value={p.watchedTab} onChange={(e) => set('watchedTab', e.target.value)} />
+        <span className="hint">W grze ustaw zakładkę jako „Public” bez ceny. Przedmioty pojawią się tu po ok. 5 minutach.</span>
+      </label>
+      <div className="row">
+        <label>
+          Powiadom od (chaos)
+          <input type="number" min={0} value={p.notifyMinChaos} onChange={(e) => set('notifyMinChaos', Number(e.target.value))} />
+        </label>
+        <label>
+          Sprawdzaj co (s)
+          <input type="number" min={120} step={30} value={p.pollSeconds} onChange={(e) => set('pollSeconds', Number(e.target.value))} />
+        </label>
+        <label>
+          Pokazuj ceny w
+          <select value={p.displayCurrency} onChange={(e) => set('displayCurrency', e.target.value as Profile['displayCurrency'])}>
+            <option value="chaos">Chaos</option>
+            <option value="divine">Divine</option>
+          </select>
+        </label>
+      </div>
+      {errors.length > 0 && <ul className="errors">{errors.map((e) => <li key={e}>{e}</li>)}</ul>}
+      <div className="form-actions">
+        {onCancel && <button type="button" className="btn ghost" onClick={onCancel}>Anuluj</button>}
+        <button type="submit" className="btn primary">Zapisz</button>
+      </div>
+    </form>
+  );
+}
