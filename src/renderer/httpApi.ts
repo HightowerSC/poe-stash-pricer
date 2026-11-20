@@ -26,11 +26,13 @@ export async function serverAvailable(): Promise<boolean> {
 export function httpApi(): PricerApi {
   const itemL = new Set<(i: PricedItem[]) => void>();
   const sessionL = new Set<(s: SessionState) => void>();
+  const checksL = new Set<(c: any[]) => void>();
   const statusL = new Set<(s: { text: string; error?: boolean }) => void>();
 
   const events = new EventSource('/api/events');
   events.addEventListener('items', (e) => itemL.forEach((l) => l(JSON.parse((e as MessageEvent).data))));
   events.addEventListener('session', (e) => sessionL.forEach((l) => l(JSON.parse((e as MessageEvent).data))));
+  events.addEventListener('checks', (e) => checksL.forEach((l) => l(JSON.parse((e as MessageEvent).data))));
   events.addEventListener('status', (e) => statusL.forEach((l) => l(JSON.parse((e as MessageEvent).data))));
   events.addEventListener('notify', (e) => {
     const n = JSON.parse((e as MessageEvent).data) as { title: string; body: string };
@@ -49,6 +51,10 @@ export function httpApi(): PricerApi {
     stop: () => call('POST', '/api/stop', {}),
     craftAdvice: (id) => call('POST', '/api/craft', { id }),
     reprice: (ids) => call('POST', '/api/reprice', { ids }),
+    checkText: (text) => call('POST', '/api/check', { text }),
+    getChecks: () => call('GET', '/api/checks'),
+    onChecks(cb) { checksL.add(cb); return () => { checksL.delete(cb); }; },
+    clearItems: (all) => call('POST', '/api/items/clear', { all }),
     listCharacters: () => call('GET', '/api/characters'),
     character: (name, prices) => call('POST', '/api/character', { name, prices: !!prices }),
     getItems: () => call('GET', '/api/items'),

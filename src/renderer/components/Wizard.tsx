@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { League, Profile } from '../../shared/types';
 import { newProfile, validateProfile } from '../../core/config';
+import { PoesessidHelp, POESESSID_NOTE } from './PoesessidHelp';
 
 interface Props {
   /** Saves the profile and starts watching. */
@@ -12,7 +13,7 @@ const STEPS = ['Witaj', 'Konto', 'Liga', 'Skrzynia', 'Gotowe'];
 /** First run: one simple question per screen, with instructions where to find each thing. */
 export function Wizard({ onDone }: Props) {
   const [step, setStep] = useState(0);
-  const [p, setP] = useState<Profile>(newProfile());
+  const [p, setP] = useState<Profile>(newProfile({ stashSource: 'session' }));
   const [leagues, setLeagues] = useState<League[]>([]);
   const [error, setError] = useState('');
   useEffect(() => { void window.pricer.listLeagues().then(setLeagues).catch(() => undefined); }, []);
@@ -25,7 +26,7 @@ export function Wizard({ onDone }: Props) {
       return;
     }
     if (step === 3 && p.stashSource === 'session' && !/^[0-9a-f]{32}$/i.test(p.poesessid.trim())) {
-      setError('POESESSID ma 32 znaki (cyfry i litery a–f). Skopiuj go jeszcze raz albo wybierz publiczne zakładki.');
+      setError('POESESSID ma 32 znaki (cyfry i litery a–f). Skopiuj go jeszcze raz albo wybierz „Pomiń”.');
       return;
     }
     if (step === STEPS.length - 1) {
@@ -48,7 +49,7 @@ export function Wizard({ onDone }: Props) {
         <div className="step">
           <h2>Co robi ten program?</h2>
           <ul>
-            <li>Sprawdza przedmioty w Twojej skrzyni w Path of Exile i podaje ich cenę (poe.ninja + oferty z trade).</li>
+            <li>Wczytuje Twoją skrzynię z Path of Exile (albo przedmiot skopiowany w grze przez Ctrl+C) i podaje cenę na podstawie poe.ninja i ofert innych graczy na trade.</li>
             <li>Pokazuje, w której zakładce i na którym polu leży każdy przedmiot, a w grze może rysować ceny na skrzyni (overlay).</li>
             <li>Podpowiada, co sprzedać, co zostawić i jaki craft podniesie cenę.</li>
           </ul>
@@ -96,29 +97,24 @@ export function Wizard({ onDone }: Props) {
 
       {step === 3 && (
         <div className="step">
-          <h2>Skąd brać przedmioty?</h2>
-          <button type="button" className={`choice ${p.stashSource === 'public' ? 'on' : ''}`} onClick={() => set('stashSource', 'public')}>
-            <b>Publiczne zakładki (polecane, bez logowania)</b>
-            <span>W grze kliknij prawym przyciskiem na zakładkę skrzyni, zaznacz <b>Public</b> i nie wpisuj ceny. Wrzucaj tam przedmioty – po ok. 5 minutach pojawią się w programie.</span>
-          </button>
+          <h2>Połącz program ze skrzynią</h2>
+          <p className="muted">Program czyta Twoją skrzynię prosto z serwera GGG (te same dane, które widzisz w grze). Potrzebuje do tego ciasteczka <b>POESESSID</b> ze strony pathofexile.com.</p>
           <button type="button" className={`choice ${p.stashSource === 'session' ? 'on' : ''}`} onClick={() => set('stashSource', 'session')}>
-            <b>Wszystkie zakładki, także prywatne (dla zaawansowanych)</b>
-            <span>Wymaga ciasteczka POESESSID ze strony pathofexile.com. GGG może zablokować ten sposób – wtedy program to powie.</span>
+            <b>Wczytuj całą skrzynię (polecane)</b>
+            <span>Wszystkie zakładki, z ceną na każdym polu. Odświeża się samo co kilka minut.</span>
           </button>
           {p.stashSource === 'session' && (
             <label>
               POESESSID
-              <input type="password" autoComplete="off" placeholder="32 znaki" value={p.poesessid} onChange={(e) => set('poesessid', e.target.value.trim())} />
-              <span className="hint">
-                1. Zaloguj się na pathofexile.com w przeglądarce. 2. Naciśnij F12. 3. Zakładka Application (Chrome) albo Storage (Firefox) → Cookies → pathofexile.com.
-                4. Skopiuj wartość <b>POESESSID</b>. Zostaje tylko na tym komputerze – nikomu go nie podawaj.
-              </span>
+              <input autoFocus type="password" autoComplete="off" placeholder="wklej 32 znaki" value={p.poesessid} onChange={(e) => set('poesessid', e.target.value.trim())} />
+              <PoesessidHelp />
+              <span className="hint">{POESESSID_NOTE}</span>
             </label>
           )}
-          <label>
-            Tylko te zakładki (opcjonalnie)
-            <input placeholder="puste = wszystkie" value={p.watchedTab} onChange={(e) => set('watchedTab', e.target.value)} />
-          </label>
+          <button type="button" className={`choice ${p.stashSource === 'none' ? 'on' : ''}`} onClick={() => set('stashSource', 'none')}>
+            <b>Pomiń – wyceniaj tylko Ctrl+C w grze</b>
+            <span>Najedź w grze na przedmiot i naciśnij Ctrl+C – cena pojawi się nad grą i w zakładce „Sprawdź”. POESESSID możesz dodać później w ustawieniach.</span>
+          </button>
         </div>
       )}
 

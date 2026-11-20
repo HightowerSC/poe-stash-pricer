@@ -316,3 +316,18 @@ button:disabled { opacity: .45; cursor: default; }
 .choice { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(200,166,90,.25); background: rgba(0,0,0,.25); color: inherit; font: inherit; cursor: pointer; }
 .choice span { font-size: 13px; color: #b9b09c; }
 .choice.on { border-color: #c8a65a; background: rgba(200,166,90,.12); }
+
+.danger-zone { border: 1px solid rgba(192,88,74,.45); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.danger-zone legend { color: #e08a7e; padding: 0 6px; font-size: 13px; }
+.btn.danger { border-color: rgba(192,88,74,.6); color: #e08a7e; }
+
+.unplaced { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px dashed rgba(200,166,90,.4); border-radius: 10px; }
+.unplaced-list { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.howto { margin: 4px 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #cfc6b2; }
+
+/* price check */
+.checks { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; }
+.check-box { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid rgba(200,166,90,.3); border-radius: 10px; background: rgba(0,0,0,.2); }
+.check-box p { margin: 4px 0 0; }
+.check-box textarea { width: 100%; box-sizing: border-box; resize: vertical; font: 12px/1.4 ui-monospace, monospace; background: rgba(0,0,0,.35); color: inherit; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 8px; }

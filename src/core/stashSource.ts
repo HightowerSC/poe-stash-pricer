@@ -1,10 +1,10 @@
-// Where the watcher gets the account's items from.
-//  - PublicTabsSource: public stash tabs, found with a trade search by account name (no login needed).
-//  - SessionTabsSource: all stash tabs, also private, from the legacy stash API with POESESSID.
+// Where the watcher gets the account's items from: the whole stash, straight from GGG's stash API
+// (the same data the game shows), using the player's POESESSID. The trade site is never used for the
+// player's own items – only to compare with other players' offers.
 
 import type { ItemLocation, PoeItem, Profile } from '../shared/types';
 import { tabFilter } from './config';
-import { listingLocation, normalizeItem } from './normalize';
+import { normalizeItem } from './normalize';
 import { sleep } from './http';
 import type { TradeClient } from './trade';
 
@@ -14,7 +14,7 @@ export interface ScanResult {
   /** true when ids is the full list (the trade search stops at 100). */
   complete: boolean;
   total: number;
-  /** Names of the tabs seen in this scan (the public source fills it in load()). */
+  /** Names of the tabs seen in this scan. */
   tabs: string[];
   /** Loads the given ids (only the ones not priced yet). */
   load(ids: string[]): Promise<{ item: PoeItem; location?: ItemLocation }[]>;
@@ -30,46 +30,20 @@ const wanted = (profile: Profile, tab: string) => {
   return f.length === 0 || f.includes(tab.toLowerCase());
 };
 
-export class PublicTabsSource implements StashSource {
-  readonly label = 'publiczne zakładki';
-
-  constructor(private readonly profile: Profile, private readonly league: string, private readonly trade: TradeClient) {}
-
-  async scan(): Promise<ScanResult> {
-    const search = await this.trade.searchAccountItems(this.league, this.profile.accountName, this.profile.realm);
-    const tabs: string[] = [];
-    return {
-      ids: search.result,
-      complete: search.total <= search.result.length,
-      total: search.total,
-      tabs,
-      load: async (ids) => {
-        const listings = ids.length ? await this.trade.fetch(ids, search.id) : [];
-        const out: { item: PoeItem; location?: ItemLocation }[] = [];
-        for (const l of listings) {
-          const tab = String(l?.listing?.stash?.name ?? '');
-          if (!tabs.includes(tab)) tabs.push(tab);
-          if (!wanted(this.profile, tab)) continue;
-          const item = normalizeItem(l.item);
-          out.push({ item, location: listingLocation(l, item) });
-        }
-        return out;
-      },
-    };
-  }
-}
-
 /** Remove-only tabs and other unusual tab types are skipped; everything else (also quad/currency/map tabs) is read. */
 const SKIP_TYPES = new Set(['MapStash']);
 
 export class SessionTabsSource implements StashSource {
-  readonly label = 'wszystkie zakładki (POESESSID)';
+  readonly label = 'skrzynię';
 
   constructor(private readonly profile: Profile, private readonly league: string, private readonly trade: TradeClient, private readonly delayMs = 1500) {}
 
   async scan(): Promise<ScanResult> {
     const { accountName, realm } = this.profile;
     const first = await this.trade.stashTab(this.league, accountName, realm, 0, true);
+    if (!first.numTabs && !(first.tabs ?? []).length) {
+      throw new Error(`Konto ${accountName} nie ma skrzyni w lidze ${this.league} – sprawdź ligę w ustawieniach (np. Standard albo bieżąca liga).`);
+    }
     const tabs = (first.tabs ?? []).filter((t) => !t.hidden && !SKIP_TYPES.has(t.type ?? '') && wanted(this.profile, t.n));
     const byId = new Map<string, { item: PoeItem; location?: ItemLocation }>();
     for (const t of tabs) {

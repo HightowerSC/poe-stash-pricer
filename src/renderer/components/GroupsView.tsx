@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { PricedItem } from '../../shared/types';
-import { groupByKind, groupByPrice } from '../../core/extras/groups';
+import { groupByKind, groupByPrice, groupByTab } from '../../core/extras/groups';
 import { isBelowMin } from '../../core/config';
 import { formatPrice } from '../format';
 import { ItemCard } from './ItemCard';
@@ -15,17 +15,21 @@ interface Props {
 }
 
 export function GroupsView({ items, currency, divine, minValue, selectedId, onSelect }: Props) {
-  const [by, setBy] = useState<'kind' | 'price'>('kind');
+  const [by, setBy] = useState<'tab' | 'kind' | 'price'>(() => {
+    try { const v = localStorage.getItem('pricer-groups'); return v === 'kind' || v === 'price' ? v : 'tab'; } catch { return 'tab'; }
+  });
+  const choose = (v: 'tab' | 'kind' | 'price') => { setBy(v); try { localStorage.setItem('pricer-groups', v); } catch { /* ignore */ } };
   const [closed, setClosed] = useState<Set<string>>(new Set());
-  const groups = by === 'kind' ? groupByKind(items, minValue) : groupByPrice(items, divine, minValue);
+  const groups = by === 'tab' ? groupByTab(items) : by === 'kind' ? groupByKind(items, minValue) : groupByPrice(items, divine, minValue);
   const toggle = (k: string) => setClosed((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
 
   return (
     <div className="groups">
       <div className="groups-head">
         <div className="seg">
-          <button className={by === 'kind' ? 'on' : ''} onClick={() => setBy('kind')}>Według rodzaju</button>
-          <button className={by === 'price' ? 'on' : ''} onClick={() => setBy('price')}>Według ceny</button>
+          <button className={by === 'tab' ? 'on' : ''} onClick={() => choose('tab')}>Według zakładki w skrzyni</button>
+          <button className={by === 'kind' ? 'on' : ''} onClick={() => choose('kind')}>Według rodzaju</button>
+          <button className={by === 'price' ? 'on' : ''} onClick={() => choose('price')}>Według ceny</button>
         </div>
         <span className="muted small">Podpowiedź, do której zakładki w grze odłożyć przedmioty – aplikacja niczego w grze nie przenosi.</span>
       </div>
@@ -40,7 +44,7 @@ export function GroupsView({ items, currency, divine, minValue, selectedId, onSe
         <section key={g.key} id={`group-${g.key}`} className="group">
           <button className="group-title" onClick={() => toggle(g.key)}>
             <span>{closed.has(g.key) ? '▸' : '▾'} {g.label}</span>
-            <span className="muted small">→ zakładka „{g.suggestedTab}”</span>
+            {by !== 'tab' && <span className="muted small">→ zakładka „{g.suggestedTab}”</span>}
             <span className="spacer" />
             <span>{g.items.length} szt. · <b>{formatPrice(g.totalChaos, currency, divine)}</b></span>
           </button>

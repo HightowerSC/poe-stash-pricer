@@ -1,16 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { StashWatcher } from './watcher';
-import { PublicTabsSource, SessionTabsSource } from './stashSource';
+import { SessionTabsSource, type StashSource } from './stashSource';
+import { tabFilter } from './config';
 import { newProfile } from './config';
 import type { PricedItem } from '../shared/types';
 
-function setup(ids: string[], tabOf: (id: string) => string, watchedTab = '') {
-  const trade: any = {
-    searchAccountItems: async () => ({ id: 'q', result: ids, total: ids.length }),
-    fetch: async (batch: string[]) => batch.map((id) => ({
-      id, item: { id, name: '', typeLine: `Item ${id}`, baseType: '', icon: '', ilvl: 1, frameType: 5 }, listing: { stash: { name: tabOf(id) } },
-    })),
+/** A stash source like SessionTabsSource, with the same tab filter. */
+function fakeSource(ids: string[], tabOf: (id: string) => string, watchedTab: string): StashSource {
+  return {
+    label: 'skrzynię',
+    async scan() {
+      const f = tabFilter(watchedTab);
+      const inTabs = ids.filter((id) => f.length === 0 || f.includes(tabOf(id).toLowerCase()));
+      return {
+        ids, complete: true, total: ids.length, tabs: [...new Set(ids.map(tabOf))],
+        load: async (batch: string[]) => batch.filter((id) => inTabs.includes(id)).map((id) => ({
+          item: { id, name: '', typeLine: `Item ${id}`, baseType: '', icon: '', ilvl: 1, frameType: 5 }, location: { tab: tabOf(id), x: 0, y: 0, w: 1, h: 1 },
+        })),
+      };
+    },
   };
+}
+
+function setup(ids: string[], tabOf: (id: string) => string, watchedTab = '') {
   const engine: any = {
     refreshPrices: async () => 0,
     price: async (item: any) => ({ itemId: item.id, source: 'poe.ninja', chaos: 1, low: 1, high: 1, confidence: 'high', sampleSize: 1, note: '' }),
@@ -18,7 +30,7 @@ function setup(ids: string[], tabOf: (id: string) => string, watchedTab = '') {
   const got: PricedItem[] = [];
   const statuses: string[] = [];
   const profile = newProfile({ accountName: 'Exile#1234', watchedTab });
-  const w = new StashWatcher(profile, 'Covens', new PublicTabsSource(profile, 'Covens', trade), engine, {
+  const w = new StashWatcher(profile, 'Covens', fakeSource(ids, tabOf, watchedTab), engine, {
     onItems: (i) => got.push(...i),
     onStatus: (s) => statuses.push(s),
     onError: (s) => statuses.push(`ERR ${s}`),
@@ -48,7 +60,7 @@ describe('StashWatcher', () => {
     const { w, statuses } = setup([], () => '');
     await w.tick();
     w.stop();
-    expect(statuses.at(-1)).toContain('Public');
+    expect(statuses.at(-1)).toContain('puste');
   });
 
   it('skips other tabs and says which tabs it saw', async () => {
@@ -97,16 +109,4 @@ describe('StashWatcher', () => {
     expect(x.location).toEqual({ tab: 'Prywatna', x: 3, y: 4, w: 1, h: 1 });
   });
 
-  it('adds a hint about other leagues when nothing is visible', async () => {
-    const profile = newProfile({ accountName: 'Exile#1234' });
-    const trade: any = { searchAccountItems: async () => ({ id: 'q', result: [], total: 0 }), fetch: async () => [] };
-    const statuses: string[] = [];
-    const w = new StashWatcher(profile, 'Covens', new PublicTabsSource(profile, 'Covens', trade), { refreshPrices: async () => 0, price: async () => ({}) as any }, {
-      onItems: () => {}, onStatus: (s) => statuses.push(s), onError: (s) => statuses.push(s),
-      onEmpty: async () => 'Twoje publiczne przedmioty widać w innej lidze: Standard (12)',
-    });
-    await w.tick();
-    w.stop();
-    expect(statuses.at(-1)).toContain('Standard (12)');
-  });
 });

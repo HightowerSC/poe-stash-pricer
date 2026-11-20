@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { League, Profile } from '../../shared/types';
 import { isDiscordWebhook, newProfile, validateProfile } from '../../core/config';
+import { PoesessidHelp, POESESSID_NOTE } from './PoesessidHelp';
 
 interface Props {
   initial?: Profile;
@@ -28,6 +29,19 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
       setDiscordState('Błąd ✗');
     }
     setTimeout(() => setDiscordState(''), 2500);
+  }
+
+  const [clearState, setClearState] = useState('');
+  async function clearItems(all: boolean) {
+    const what = all ? 'ze WSZYSTKICH lig' : 'z bieżącej ligi';
+    if (!window.confirm(`Usunąć zapamiętane przedmioty ${what}? Ceny, pozycje i lista „już widzianych” zostaną wyczyszczone, a przy następnym sprawdzeniu program pobierze skrzynię od nowa. Ustawienia i profile zostają.`)) return;
+    setClearState('Czyszczę…');
+    try {
+      const r = await window.pricer.clearItems(all);
+      setClearState(`Wyczyszczono (${r.removed} przedmiotów). Program pobierze skrzynię od nowa.`);
+    } catch (e) {
+      setClearState(`Błąd: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   const set = <K extends keyof Profile>(k: K, v: Profile[K]) => setP({ ...p, [k]: v });
@@ -76,25 +90,19 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
         )}
       </div>
       <label>
-        Skąd brać przedmioty
+        Skąd brać Twoje przedmioty
         <select value={p.stashSource} onChange={(e) => set('stashSource', e.target.value as Profile['stashSource'])}>
-          <option value="public">Publiczne zakładki (przez trade, bez logowania)</option>
-          <option value="session">Wszystkie zakładki, także prywatne (POESESSID)</option>
+          <option value="session">Cała skrzynia prosto z serwera GGG (POESESSID)</option>
+          <option value="none">Bez skanowania skrzyni – tylko Ctrl+C w grze</option>
         </select>
-        <span className="hint">
-          {p.stashSource === 'public'
-            ? 'W grze ustaw zakładki jako „Public” bez ceny. Przedmioty pojawią się tu po ok. 5 minutach.'
-            : 'Czyta wszystkie zakładki od razu, bez ustawiania „Public”. GGG może zablokować ten sposób (błąd 403) – wtedy wróć do publicznych zakładek.'}
-        </span>
+        <span className="hint">Ceny zawsze pochodzą z poe.ninja i z ofert innych graczy na trade. Ctrl+C na przedmiocie w grze działa w obu trybach.</span>
       </label>
       {p.stashSource === 'session' && (
         <label>
           POESESSID
           <input type="password" autoComplete="off" placeholder="32 znaki z ciasteczek pathofexile.com" value={p.poesessid} onChange={(e) => set('poesessid', e.target.value.trim())} />
-          <span className="hint">
-            Zaloguj się na pathofexile.com → F12 → Application (Aplikacja) → Cookies → POESESSID → skopiuj wartość.
-            Zostaje tylko w pliku ustawień na tym komputerze i trafia wyłącznie do pathofexile.com. Nikomu go nie podawaj – daje dostęp do konta.
-          </span>
+          <PoesessidHelp />
+          <span className="hint">{POESESSID_NOTE}</span>
         </label>
       )}
       <label>
@@ -138,6 +146,17 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
         <input type="checkbox" checked={p.usePoeprices} onChange={(e) => set('usePoeprices', e.target.checked)} />
         Druga opinia z poeprices.info dla przedmiotów rare (wolniejsze, serwis bywa niedostępny)
       </label>
+      {initial && (
+        <fieldset className="danger-zone">
+          <legend>Dane o przedmiotach ze skrzyni</legend>
+          <span className="hint">Przydaje się, gdy lista jest nieaktualna albo przedmioty nie mają pozycji w zakładkach. Ustawienia i profile nie są usuwane.</span>
+          <div className="inline">
+            <button type="button" className="btn ghost" onClick={() => void clearItems(false)}>Wyczyść przedmioty (bieżąca liga)</button>
+            <button type="button" className="btn ghost danger" onClick={() => void clearItems(true)}>Wyczyść przedmioty (wszystkie ligi)</button>
+          </div>
+          {clearState && <span className="hint">{clearState}</span>}
+        </fieldset>
+      )}
       {errors.length > 0 && <ul className="errors">{errors.map((e) => <li key={e}>{e}</li>)}</ul>}
       <div className="form-actions">
         {onCancel && <button type="button" className="btn ghost" onClick={onCancel}>Anuluj</button>}

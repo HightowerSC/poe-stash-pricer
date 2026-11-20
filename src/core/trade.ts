@@ -1,6 +1,6 @@
 // Client for the pathofexile.com trade site, used the same way as Awakened PoE Trade:
-//  1) find new items in the user's PUBLIC stash tabs by searching for their account name,
-//  2) find comparable listings for a rare item and summarise their prices.
+//  - comparable listings of OTHER players for pricing (search + fetch),
+//  - the player's own stash, characters and gear from the profile endpoints (character-window).
 // Rate limits are dynamic, so we read X-Rate-Limit-* headers after every call and wait when needed.
 
 import type { ComparableListing, PoeItem, Realm } from '../shared/types';
@@ -18,18 +18,6 @@ export class TradeClient {
 
   constructor(private readonly fetchFn: FetchLike = fetch, contact = '', private readonly sessionId?: string) {
     this.ua = userAgent(contact);
-  }
-
-  /** Newest items listed in the account's public tabs (priced or not). */
-  async searchAccountItems(league: string, account: string, realm: Realm = 'pc'): Promise<TradeSearchResult> {
-    const query = {
-      query: {
-        status: { option: 'any' },
-        filters: { trade_filters: { filters: { account: { input: account } } } },
-      },
-      sort: { indexed: 'desc' },
-    };
-    return this.search(league, query, realm);
   }
 
   /**

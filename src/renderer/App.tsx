@@ -9,6 +9,8 @@ import { ItemDetails } from './components/ItemDetails';
 import { StashView } from './components/StashView';
 import { CharacterView } from './components/CharacterView';
 import { GroupsView } from './components/GroupsView';
+import { ChecksView } from './components/ChecksView';
+import type { PriceCheck } from '../shared/types';
 import { formatPrice } from './format';
 import { isBelowMin } from '../core/config';
 
@@ -28,10 +30,11 @@ export function App() {
   const [session, setSession] = useState<SessionState | null>(null);
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState<'list' | 'stash' | 'groups' | 'character'>(() => {
+  const [checks, setChecks] = useState<PriceCheck[]>([]);
+  const [view, setView] = useState<'list' | 'stash' | 'groups' | 'character' | 'check'>(() => {
     try {
       const v = localStorage.getItem('pricer-view');
-      return v === 'stash' || v === 'groups' || v === 'character' ? v : 'list';
+      return v === 'stash' || v === 'groups' || v === 'character' || v === 'check' ? v : 'list';
     } catch { return 'list'; }
   });
   useEffect(() => {
@@ -43,12 +46,17 @@ export function App() {
     void window.pricer.getItems().then(setItems);
     const offItems = window.pricer.onItems(setItems);
     const offStatus = window.pricer.onStatus(setStatus);
+    void window.pricer.getChecks().then(setChecks).catch(() => undefined);
+    const offChecks = window.pricer.onChecks((c) => {
+      setChecks(c);
+      if (c[0]) setSelected({ item: c[0].item, price: c[0].price, advice: c[0].advice, firstSeen: c[0].at });
+    });
     void window.pricer.getSession().then(setSession);
     const offSession = window.pricer.onSession((st) => {
       setSession(st);
       if (st.divineRate) setDivine(st.divineRate);
     });
-    return () => { offItems(); offStatus(); offSession(); };
+    return () => { offItems(); offStatus(); offSession(); offChecks(); };
   }, []);
 
   const profile = settings?.profiles.find((p) => p.id === settings.activeProfileId) ?? null;
@@ -208,6 +216,7 @@ export function App() {
           <button className={view === 'stash' ? 'on' : ''} onClick={() => setView('stash')}>Zakładki</button>
           <button className={view === 'groups' ? 'on' : ''} onClick={() => setView('groups')}>Kategorie</button>
           <button className={view === 'character' ? 'on' : ''} onClick={() => setView('character')}>Postać</button>
+          <button className={view === 'check' ? 'on' : ''} onClick={() => setView('check')}>Sprawdź (Ctrl+C){checks.length ? ` · ${checks.length}` : ''}</button>
         </div>
         <span className="spacer" />
         <div className="threshold" title="Przedmioty warte mniej niż ta kwota (albo bez ceny) są oznaczane jako tanie">
@@ -235,7 +244,9 @@ export function App() {
       </section>
 
       <main className="content">
-        {view === 'character' ? (
+        {view === 'check' ? (
+          <ChecksView checks={checks} currency={currency} divine={divine} minValue={minValue} selectedId={selected?.item.id ?? null} onSelect={setSelected} desktop={navigator.userAgent.includes('Electron')} />
+        ) : view === 'character' ? (
           <CharacterView currency={currency} divine={divine} selectedId={selected?.item.id ?? null} onSelect={setSelected} />
         ) : view === 'groups' && visible.length > 0 ? (
           <GroupsView items={visible} currency={currency} divine={divine} minValue={minValue} selectedId={selected?.item.id ?? null} onSelect={setSelected} />
@@ -249,15 +260,16 @@ export function App() {
                 <p className={status.error ? 'error-text' : 'muted'}>{status.text}</p>
                 {!busy && (
                   <p className="muted small">
-                    Program widzi tylko przedmioty z zakładek ustawionych w grze jako <b>Public</b> (prawy klik na zakładkę → Edit → Public, bez ceny).<br />
-                    Trade pokazuje je z opóźnieniem ok. 5 minut.
+                    {profile?.stashSource === 'session'
+                      ? <>Skrzynia jest wczytywana z serwera GGG – pierwsze sprawdzenie może potrwać chwilę (każda zakładka to osobne zapytanie).</>
+                      : <>Skanowanie skrzyni jest wyłączone. Wyceniaj w grze: najedź na przedmiot i naciśnij <b>Ctrl+C</b> (zakładka „Sprawdź”), albo wpisz POESESSID w ⚙ Ustawieniach.</>}
                   </p>
                 )}
               </>
             ) : (
               <>
                 <p>Brak przedmiotów.</p>
-                <p className="muted">Kliknij <b>Start</b>, aby obserwować publiczną zakładkę, albo <b>Demo</b>, aby zobaczyć przykład.</p>
+                <p className="muted">Kliknij <b>Start</b>, aby wczytać skrzynię, albo <b>Demo</b>, aby zobaczyć przykład. W grze możesz też nacisnąć <b>Ctrl+C</b> na przedmiocie.</p>
                 {status.error && <p className="error-text">{status.text}</p>}
               </>
             )}

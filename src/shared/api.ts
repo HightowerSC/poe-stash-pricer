@@ -1,6 +1,6 @@
 // The bridge exposed by the preload script as window.pricer.
 
-import type { AppSettings, CharacterSummary, CharacterView, CraftReport, League, PricedItem, PricePoint, SessionSummary } from './types';
+import type { AppSettings, PriceCheck, CharacterSummary, CharacterView, CraftReport, League, PricedItem, PricePoint, SessionSummary } from './types';
 
 export interface SessionState {
   summary: SessionSummary;
@@ -20,6 +20,12 @@ export interface PricerApi {
   craftAdvice(itemId: string): Promise<CraftReport>;
   /** Prices items again with the current market (all present items, or the given ids). */
   reprice(ids?: string[]): Promise<{ queued: number }>;
+  /** Prices an item from text copied in game with Ctrl+C. */
+  checkText(text: string): Promise<PriceCheck>;
+  getChecks(): Promise<PriceCheck[]>;
+  onChecks(cb: (c: PriceCheck[]) => void): () => void;
+  /** Forgets remembered stash items (current league, or all leagues); settings stay. */
+  clearItems(all: boolean): Promise<{ removed: number }>;
   /** Characters of the account (public profile or POESESSID). */
   listCharacters(): Promise<CharacterSummary[]>;
   /** Gear, gems, jewels and stats of one character; prices=true also prices the gear. */

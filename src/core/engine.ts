@@ -58,6 +58,7 @@ export class PricingEngine {
   }
 
   async price(item: PoeItem): Promise<PriceEstimate> {
+    if (!item.baseType && item.typeLine) item = { ...item, baseType: this.index.findBase(item.typeLine) ?? item.typeLine };
     const estimate = await this.priceInner(item);
     if (this.profile.usePoeprices && rarity(item) === 'rare' && item.identified !== false) {
       const op = await poepricesOpinion(this.poepricesFetch, this.league, item);

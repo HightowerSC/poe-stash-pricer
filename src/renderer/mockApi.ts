@@ -6,6 +6,8 @@ import { toCsv } from '../core/extras/csv';
 import { upgradeProfile } from '../core/config';
 import { craftReport, demoCraftPricer } from '../core/craft/advisor';
 import { demoCharacter, demoCharacters } from '../core/character';
+import { parseItemText } from '../core/itemText';
+import type { PriceCheck } from '../shared/types';
 
 /** Used when the UI runs in a normal browser (design preview, screenshots). */
 export function browserMockApi(): PricerApi {
@@ -21,6 +23,8 @@ export function browserMockApi(): PricerApi {
   let session: SessionState = { summary: sessionSummary([], new Date().toISOString()), value: [], divineRate: null };
   const itemListeners = new Set<(i: PricedItem[]) => void>();
   const sessionListeners = new Set<(s: SessionState) => void>();
+  let checks: PriceCheck[] = [];
+  const checkListeners = new Set<(c: PriceCheck[]) => void>();
   const statusListeners = new Set<(s: { text: string; error?: boolean }) => void>();
 
   return {
@@ -47,6 +51,22 @@ export function browserMockApi(): PricerApi {
       return { league: 'Covens', divineRate: 180 };
     },
     async stop() {},
+    async checkText(text) {
+      const item = parseItemText(text);
+      if (!item) throw new Error('To nie wygląda na przedmiot z PoE.');
+      const check: PriceCheck = { at: new Date().toISOString(), item, price: { itemId: item.id, source: 'none', chaos: null, low: null, high: null, confidence: 'low', sampleSize: 0, note: 'Podgląd w przeglądarce – bez wyceny' } };
+      checks = [check, ...checks];
+      checkListeners.forEach((l) => l(checks));
+      return check;
+    },
+    async getChecks() { return checks; },
+    onChecks(cb) { checkListeners.add(cb); return () => { checkListeners.delete(cb); }; },
+    async clearItems() {
+      const removed = items.length;
+      items = [];
+      itemListeners.forEach((l) => l(items));
+      return { removed };
+    },
     async listCharacters() { return demoCharacters(); },
     async character(name, prices) {
       const view = demoCharacter(name);

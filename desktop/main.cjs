@@ -3,10 +3,11 @@
 // own window and draws the optional in-game overlay. Installers are built by GitHub Actions
 // (Windows .exe, Linux AppImage) and update themselves from GitHub Releases.
 //
-// The overlay only DRAWS prices (GGG third-party policy): it never reads the screen, the clipboard,
-// game memory or game files, and never sends input to the game.
+// GGG third-party policy: the app never reads the screen, game memory or game files and never sends
+// input to the game. The player copies an item with the game's own Ctrl+C; the app notices copied PoE
+// item text in the clipboard and prices it (everything else in the clipboard is ignored). Can be turned off in the tray.
 
-const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu, nativeImage, dialog, clipboard } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -25,7 +26,7 @@ if (!app.requestSingleInstanceLock()) {
 let main = null;
 let overlay = null;
 let tray = null;
-const state = { overlayOn: false, calibrating: false, tabIndex: 0, items: [], minValue: 0, grids: {} };
+const state = { overlayOn: false, calibrating: false, tabIndex: 0, items: [], minValue: 0, grids: {}, clipWatch: true, popup: null };
 const CONFIG = () => path.join(app.getPath('userData'), 'overlay.json');
 
 // ---------- server ----------
@@ -93,12 +94,13 @@ function loadConfig() {
     state.grids = saved.grids || {};
     state.tabIndex = saved.tabIndex || 0;
     state.overlayOn = !!saved.overlayOn;
+    state.clipWatch = saved.clipWatch !== false;
   } catch { /* first run */ }
 }
 
 function saveConfig() {
   fs.mkdirSync(path.dirname(CONFIG()), { recursive: true });
-  fs.writeFileSync(CONFIG(), JSON.stringify({ grids: state.grids, tabIndex: state.tabIndex, overlayOn: state.overlayOn }, null, 2));
+  fs.writeFileSync(CONFIG(), JSON.stringify({ grids: state.grids, tabIndex: state.tabIndex, overlayOn: state.overlayOn, clipWatch: state.clipWatch }, null, 2));
 }
 
 const displayKey = () => { const d = screen.getPrimaryDisplay(); return `${d.size.width}x${d.size.height}`; };
@@ -145,16 +147,113 @@ function createOverlay() {
 }
 
 function pushOverlay() {
-  if (state.overlayOn && !overlay) createOverlay();
+  if ((state.overlayOn || state.popup) && !overlay) { createOverlay(); return; } // did-finish-load pushes again
   if (!overlay) return updateTray();
   const tab = currentTab();
   overlay.webContents.send('overlay:state', {
     visible: state.overlayOn, calibrating: state.calibrating, grid: grid(),
     tab: tab ? tab.tab : null, tabCount: tabs().length, items: tab ? tab.items : [], minValue: state.minValue,
+    popup: state.popup,
   });
   overlay.setIgnoreMouseEvents(!state.calibrating, { forward: true });
-  if (state.overlayOn) overlay.showInactive(); else overlay.hide();
+  if (state.overlayOn || state.popup) overlay.showInactive(); else overlay.hide();
   updateTray();
+}
+
+// ---------- price check: Ctrl+C on an item in game ----------
+// The game itself copies the item text with Ctrl+C. The app only looks at the clipboard to notice a copied
+// PoE item (text starting with "Item Class:"/"Rarity:"); anything else is ignored and never stored or sent.
+
+let lastClip = '';
+let popupTimer = null;
+const looksLikeItem = (t) => /^(Item Class: .+\r?\n)?Rarity: .+/m.test(t) && t.includes('--------');
+
+function fmtChaos(c, divine) {
+  if (c == null) return 'brak ceny';
+  if (divine && c >= divine) return `${(c / divine).toFixed(c >= divine * 10 ? 0 : 1)} div (${Math.round(c)}c)`;
+  return `${c >= 10 ? Math.round(c) : c.toFixed(1)}c`;
+}
+
+function showPopup(popup, ms = 9000) {
+  const p = screen.getCursorScreenPoint();
+  const d = screen.getPrimaryDisplay().bounds;
+  state.popup = { ...popup, x: p.x - d.x, y: p.y - d.y };
+  if (popupTimer) clearTimeout(popupTimer);
+  popupTimer = setTimeout(() => { state.popup = null; pushOverlay(); }, ms);
+  pushOverlay();
+}
+
+async function priceClipboard(text) {
+  if (process.env.PRICER_DEBUG) console.log('[clip] pricing');
+  showPopup({ title: 'Wyceniam…', price: '', note: '', loading: true }, 30000);
+  try {
+    const res = await fetch(`${SERVER}/api/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data && data.error ? data.error : `HTTP ${res.status}`);
+    const session = await fetch(`${SERVER}/api/session`).then((r) => r.json()).catch(() => ({}));
+    const divine = session && session.divineRate;
+    const pr = data.price || {};
+    const title = data.item.name ? `${data.item.name} · ${data.item.typeLine}` : data.item.typeLine;
+    showPopup({
+      title,
+      price: fmtChaos(pr.chaos, divine) + (pr.lowerBound && pr.chaos != null ? '+' : ''),
+      range: pr.low != null && pr.high != null && pr.low !== pr.high ? `${fmtChaos(pr.low, divine)} – ${fmtChaos(pr.high, divine)}` : '',
+      confidence: pr.confidence,
+      special: (pr.specialMods || []).join(', '),
+      advice: data.advice ? data.advice.label : '',
+      note: pr.note || '',
+    });
+  } catch (e) {
+    showPopup({ title: 'Nie udało się wycenić', price: '', note: e.message, error: true });
+  }
+}
+
+// Linux: reading the X11/Wayland clipboard synchronously can stall the whole app when the clipboard owner
+// is slow, so we use a small system tool asynchronously when one is installed (xclip, xsel or wl-paste).
+const { execFile } = require('node:child_process');
+
+function findTool() {
+  if (process.platform !== 'linux') return null;
+  const dirs = (process.env.PATH || '/usr/bin:/bin').split(':');
+  const has = (name) => dirs.some((d) => { try { return fs.statSync(path.join(d, name)).isFile(); } catch { return false; } });
+  if (process.env.WAYLAND_DISPLAY && has('wl-paste')) return ['wl-paste', ['--no-newline', '--type', 'text']];
+  if (has('xclip')) return ['xclip', ['-o', '-selection', 'clipboard']];
+  if (has('xsel')) return ['xsel', ['--clipboard', '--output']];
+  return null;
+}
+
+function readClipboard(tool) {
+  if (!tool) {
+    try { return Promise.resolve(clipboard.readText()); } catch { return Promise.resolve(''); }
+  }
+  return new Promise((resolve) => {
+    execFile(tool[0], tool[1], { timeout: 1500, maxBuffer: 1024 * 1024 }, (err, out) => resolve(err ? '' : String(out)));
+  });
+}
+
+async function priceClipboardNow() {
+  const t = await readClipboard(findTool());
+  if (t && looksLikeItem(t)) await priceClipboard(t);
+  else showPopup({ title: 'W schowku nie ma przedmiotu', price: '', note: 'Najedź w grze na przedmiot i naciśnij Ctrl+C.', error: true }, 4000);
+}
+
+function watchClipboard() {
+  const tool = findTool();
+  let busy = false;
+  void readClipboard(tool).then((t) => { lastClip = t; });
+  setInterval(async () => {
+    if (!state.clipWatch || busy) return;
+    busy = true;
+    try {
+      const t = await readClipboard(tool);
+      if (t === lastClip) return;
+      lastClip = t;
+      if (process.env.PRICER_DEBUG) console.log('[clip] changed', looksLikeItem(t));
+      if (t && looksLikeItem(t)) void priceClipboard(t);
+    } finally {
+      busy = false;
+    }
+  }, 400);
 }
 
 async function poll() {
@@ -196,7 +295,9 @@ function updateTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Pokaż aplikację', click: showMain },
     { type: 'separator' },
-    { label: 'Overlay w grze (Ctrl+Alt+P)', type: 'checkbox', checked: state.overlayOn, click: toggleOverlay },
+    { label: 'Wyceń schowek teraz (Ctrl+Alt+D)', click: () => void priceClipboardNow() },
+    { label: 'Wycena po Ctrl+C w grze', type: 'checkbox', checked: state.clipWatch, click: () => { state.clipWatch = !state.clipWatch; saveConfig(); updateTray(); } },
+    { label: 'Ceny na skrzyni w grze (Ctrl+Alt+P)', type: 'checkbox', checked: state.overlayOn, click: toggleOverlay },
     { label: 'Kalibruj siatkę skrzynki (Ctrl+Alt+K)', click: toggleCalibration },
     { label: 'Następna zakładka (Ctrl+Alt+→)', click: () => switchTab(1), enabled: t.length > 1 },
     ...t.map((x, i) => ({ label: `Zakładka: ${x.tab}`, type: 'radio', checked: i === state.tabIndex, click: () => { state.tabIndex = i; saveConfig(); pushOverlay(); } })),
@@ -249,9 +350,12 @@ app.whenReady().then(async () => {
   globalShortcut.register('CommandOrControl+Alt+Right', () => switchTab(1));
   globalShortcut.register('CommandOrControl+Alt+Left', () => switchTab(-1));
   globalShortcut.register('CommandOrControl+Alt+K', toggleCalibration);
+  // Price what is in the clipboard now (for when automatic Ctrl+C pricing is turned off).
+  globalShortcut.register('CommandOrControl+Alt+D', () => void priceClipboardNow());
   // Linux compositors need a moment before a transparent window can be created.
   setTimeout(() => { void poll(); setInterval(poll, 5000); }, process.platform === 'linux' ? 500 : 0);
   setTimeout(() => checkUpdates(false), 5000);
+  watchClipboard();
 });
 
 app.on('will-quit', () => globalShortcut.unregisterAll());

@@ -110,6 +110,15 @@ const server = http.createServer(async (req, res) => {
         const { name, prices } = await readBody(req);
         return json(res, 200, await service.character(String(name ?? ''), !!prices));
       }
+      case 'POST /api/items/clear': {
+        const { all } = await readBody(req);
+        return json(res, 200, await service.clearItems(!!all));
+      }
+      case 'POST /api/check': {
+        const { text } = await readBody(req);
+        return json(res, 200, await service.checkText(String(text ?? '')));
+      }
+      case 'GET /api/checks': return json(res, 200, service.getChecks());
       case 'POST /api/stop': service.stop(); return json(res, 200, { ok: true });
       case 'POST /api/discord/test': {
         const { webhook } = await readBody(req);

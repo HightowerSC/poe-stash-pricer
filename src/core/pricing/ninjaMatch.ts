@@ -68,6 +68,18 @@ export class NinjaIndex {
     return fromRow(item, row, `Cluster ${info.passives} pasywek, ilvl ${row.levelRequired ?? '?'}`);
   }
 
+  /** Magic items copied in game carry affixes in the name ("Hale Two-Toned Boots of the Fox"): find the base. */
+  findBase(text: string): string | null {
+    const lower = text.toLowerCase();
+    let best: string | null = null;
+    for (const [name, rows] of this.byName) {
+      if (!rows.some((r) => r.category === 'BaseType')) continue;
+      if (lower.includes(name) && (!best || name.length > best.length)) best = name;
+    }
+    if (!best) return null;
+    return this.byName.get(best)![0].name;
+  }
+
   /**
    * Special unique variants ("Voidborn The Covenant", "Foulborn …") are often missing on poe.ninja.
    * Returns the plain unique name when dropping the first word(s) gives a known unique, else null.

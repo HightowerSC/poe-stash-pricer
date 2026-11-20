@@ -66,3 +66,13 @@ describe('groups', () => {
     expect(suggestedTab(hh, 5)).toBe('Unikaty');
   });
 });
+
+describe('group by stash tab', () => {
+  it('puts items without a position last', async () => {
+    const { groupByTab } = await import('./extras/groups');
+    const items = demoItems();
+    const g = groupByTab([...items, { ...items[0], item: { ...items[0].item, id: 'np' }, location: undefined }]);
+    expect(g[0].label).toBe('Zakładka „Inbox”');
+    expect(g.at(-1)!.label).toBe('Bez pozycji w skrzyni');
+  });
+});

@@ -21,12 +21,33 @@ export function StashView({ items, currency, divine, minValue, selectedId, onSel
     if (tabs.length && !tabs.some((t) => t.tab === active)) setActive(tabs[0].tab);
   }, [tabs, active]);
   const tab = tabs.find((t) => t.tab === active) ?? tabs[0];
+  const unplaced = items.filter((p) => !p.location && p.present !== false);
+
+  const unplacedNote = unplaced.length > 0 && (
+    <div className="unplaced">
+      <b>{unplaced.length} przedmiotów bez pozycji w skrzyni</b>
+      <span className="muted small">
+        Zapisała je starsza wersja programu albo pochodzą z innego źródła. Kliknij Start – program pobierze ich pozycje ponownie.
+        Jeśli to nie pomoże: ⚙ Ustawienia → „Wyczyść przedmioty”.
+      </span>
+      <div className="unplaced-list">
+        {unplaced.slice(0, 40).map((p) => (
+          <button key={p.item.id} className="group-chip" onClick={() => onSelect(p)}>
+            {displayName(p.item).title} <b>{formatPrice(p.price.chaos, currency, divine)}</b>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   if (!tab) {
     return (
-      <div className="empty">
-        <p>Brak przedmiotów z pozycją w zakładce.</p>
-        <p className="muted small">Pozycje znamy dla przedmiotów wycenionych z publicznych zakładek (po kliknięciu Start).</p>
+      <div className="stash">
+        <div className="empty">
+          <p>Brak przedmiotów z pozycją w zakładce.</p>
+          <p className="muted small">Pozycje znamy dla przedmiotów pobranych ze skrzyni po kliknięciu Start (z POESESSID w ustawieniach).</p>
+        </div>
+        {unplacedNote}
       </div>
     );
   }
@@ -83,6 +104,7 @@ export function StashView({ items, currency, divine, minValue, selectedId, onSel
           ))}
         </div>
       )}
+      {unplacedNote}
     </div>
   );
 }

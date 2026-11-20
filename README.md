@@ -19,8 +19,8 @@ Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym
 - **Minimalna wartość** – przedmioty tańsze od wpisanego progu (i bez ceny) są wyszarzone z etykietą; można je też ukryć.
 - **Eksport CSV** gotowy do Excela (średniki, przecinek dziesiętny).
 - **Postać** – ekwipunek, gemy i jewele wybranej postaci (jak na poe.ninja), statystyki zsumowane z przedmiotów (życie, ES, odporności z brakami do 75%, atrybuty…) i wycena całego ekwipunku jednym kliknięciem. Wymaga publicznego profilu (albo POESESSID).
-- **Kategorie** – przedmioty posegregowane według rodzaju (waluta, unikaty, rare, jewele, gemy, mapy, do NPC…) albo przedziału ceny, z sumą wartości i podpowiedzią, do której zakładki w grze je odłożyć.
-- **Wszystkie zakładki** – domyślnie wszystkie publiczne zakładki; opcjonalnie wybrane (po przecinku) albo wszystkie, także prywatne, przez POESESSID.
+- **Kategorie** – przedmioty posegregowane według zakładki w skrzyni, rodzaju (waluta, unikaty, rare, jewele, gemy, mapy, do NPC…) albo przedziału ceny, z sumą wartości i podpowiedzią, do której zakładki w grze je odłożyć.
+- **Cała skrzynia** – wszystkie zakładki prosto z serwera GGG (POESESSID), opcjonalnie tylko wybrane (po przecinku). Ctrl+C w grze wycenia pojedynczy przedmiot.
 - **Przeliczanie cen** – przycisk ↻ Przelicz (wszystko albo jeden przedmiot) i automatyczne przeliczanie co X godzin.
 - **Widok zakładek** – siatka 12×12 / 24×24 z ceną na każdym polu (przedmiot lub stack); pozycja przedmiotu („kolumna N, rząd M”) na karcie i w szczegółach.
 - **Overlay w grze** – ceny rysowane na polach skrzynki w przezroczystym oknie (opis niżej).
@@ -47,9 +47,15 @@ Wymagane: Node.js 22+ i Git. `npm install`, potem:
 
 Nowa wersja: zmień `version` w `package.json` i wypchnij zmianę, potem na GitHubie **Actions → Release → Run workflow** (albo wypchnij tag `vX.Y.Z`) – GitHub Actions zbuduje instalatory i opublikuje Release, a zainstalowane programy same się zaktualizują.
 
+## Wycena w grze: Ctrl+C
+
+W grze najedź myszką na przedmiot i naciśnij **Ctrl+C** (funkcja samej gry). Okienko z ceną pojawi się obok kursora, a przedmiot trafi do zakładki **Sprawdź** w aplikacji. **Ctrl+Alt+C** w grze kopiuje też tiery modów – wtedy działa doradca craftu. **Ctrl+Alt+D** wycenia to, co jest w schowku (gdy automatyczna wycena jest wyłączona w zasobniku).
+
+Linux: najlepiej działa z zainstalowanym `xclip` (Mint/Ubuntu: `sudo apt install xclip`), choć nie jest wymagany.
+
 ## Overlay w grze
 
-Przezroczysta warstwa nad grą z cenami na polach otwartej zakładki. Włączasz ją skrótem **Ctrl+Alt+P** albo z ikony w zasobniku („Overlay w grze”).
+Przezroczysta warstwa nad grą z cenami na polach otwartej zakładki (wymaga wczytanej skrzyni). Włączasz ją skrótem **Ctrl+Alt+P** albo z ikony w zasobniku („Ceny na skrzyni w grze”).
 
 - Gra musi działać w trybie **Windowed Fullscreen** (borderless), nie w pełnym ekranie.
 - **Ctrl+Alt+K** – kalibracja: przeciągnij złotą ramkę na pola zakładki 12×12, kółkiem w rogu zmień rozmiar (strzałki i +/− do precyzji, Enter zapisuje). Robisz to raz na rozdzielczość.
@@ -58,21 +64,21 @@ Przezroczysta warstwa nad grą z cenami na polach otwartej zakładki. Włączasz
 - Overlay tylko wyświetla: nie czyta ekranu, pamięci ani plików gry i nie wysyła żadnych klawiszy do gry (zgodnie z zasadami GGG dla narzędzi zewnętrznych). Kliknięcia przechodzą przez niego do gry.
 - Linux: działa pod X11 (domyślnie np. w Mint Cinnamon). Pod Wayland przezroczyste okna „zawsze na wierzchu” mogą nie działać.
 
-## Jak przygotować konto
+## Skąd program bierze Twoje przedmioty
 
-**Sposób 1 – publiczne zakładki (polecany):**
-1. W grze kliknij prawym przyciskiem na zakładkę skrzyni i zaznacz **Public** – bez ceny. Możesz tak ustawić kilka zakładek.
-2. Wrzucaj tam przedmioty. Trade site pokazuje je z opóźnieniem ok. 5 minut.
+Twoje przedmioty **nie są** pobierane z trade – trade służy tylko do porównania z ofertami innych graczy.
 
-**Sposób 2 – wszystkie zakładki, także prywatne:** w profilu wybierz „Wszystkie zakładki (POESESSID)” i wklej ciasteczko POESESSID z pathofexile.com. Zostaje tylko na Twoim komputerze. GGG może blokować ten stary endpoint (błąd 403) – wtedy wróć do sposobu 1.
+- **Cała skrzynia z serwera GGG (polecane):** w kreatorze albo w ⚙ Ustawieniach wklej **POESESSID** – ciasteczko z pathofexile.com (instrukcja krok po kroku jest w programie). Program wczytuje wszystkie zakładki, także prywatne, z pozycją każdego przedmiotu. POESESSID zostaje tylko na Twoim komputerze. Po wylogowaniu na stronie trzeba skopiować nowy.
+- **Bez skanowania skrzyni:** tylko Ctrl+C w grze.
 
 **Zakładka Postać:** na pathofexile.com → My Account → Privacy Settings odznacz „Hide Characters” (albo użyj POESESSID).
 
-Jeśli nic się nie pojawia, pasek stanu podpowie przyczynę, np. że Twoje publiczne przedmioty są w innej lidze.
+Jeśli coś nie działa, pasek stanu pod kafelkami podaje przyczynę (np. nieaktualny POESESSID albo inna liga). ⚙ Ustawienia → „Wyczyść przedmioty” zaczyna wczytywanie skrzyni od nowa.
 
 ## Zasady
 
-- Aplikacja nie dotyka klienta gry ani jego plików, nie czyta ekranu ani schowka w tle.
+- Aplikacja nie dotyka klienta gry ani jego plików, nie czyta ekranu ani pamięci gry i nie wysyła klawiszy do gry. Ze schowka bierze tylko tekst przedmiotu skopiowanego w grze przez Ctrl+C (resztę ignoruje); można to wyłączyć w zasobniku.
+- Twoje przedmioty pochodzą z Twojej skrzyni (serwer GGG, POESESSID) albo z Ctrl+C. Trade służy wyłącznie do porównania z ofertami innych graczy.
 - Szanuje limity: User-Agent z kontaktem, max 2 równoległe zapytania do poe.ninja, odczyt nagłówków `X-Rate-Limit-*` trade i pauza przed przekroczeniem.
 
 ## Plany na przyszłość: PoE HUB

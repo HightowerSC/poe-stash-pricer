@@ -18,7 +18,8 @@ export function newProfile(partial: Partial<Profile> = {}): Profile {
     pollSeconds: Math.max(MIN_POLL_SECONDS, partial.pollSeconds ?? 180),
     discordWebhook: partial.discordWebhook ?? '',
     usePoeprices: partial.usePoeprices ?? false,
-    stashSource: partial.stashSource === 'session' ? 'session' : 'public',
+    // Old profiles had 'public' (own items through trade); that source was removed on the user's request.
+    stashSource: partial.stashSource === 'session' || (partial.stashSource === undefined || (partial.stashSource as string) === 'public') && !!partial.poesessid ? 'session' : 'none',
     poesessid: partial.poesessid ?? '',
     repriceHours: Math.max(0, partial.repriceHours ?? 0),
   };

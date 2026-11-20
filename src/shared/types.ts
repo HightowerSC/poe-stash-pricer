@@ -29,10 +29,11 @@ export interface Profile {
   /** Ask poeprices.info for a second opinion on rares. */
   usePoeprices: boolean;
   /**
-   * Where items come from: 'public' = public stash tabs found through the trade site (no login),
-   * 'session' = all stash tabs (also private) through the legacy stash API with the user's POESESSID.
+   * Where the user's items come from (the trade site is used only to compare with other players' offers):
+   * 'session' = the whole stash straight from GGG's stash API with the user's POESESSID,
+   * 'none' = no stash scanning, only items copied in game with Ctrl+C.
    */
-  stashSource: 'public' | 'session';
+  stashSource: 'session' | 'none';
   /** POESESSID cookie, kept only in the local settings file and sent only to pathofexile.com. */
   poesessid: string;
   /** Re-price items older than this many hours automatically. 0 = off. */
@@ -235,4 +236,12 @@ export interface CharacterView {
   stats: CharacterStat[];
   /** Link to the character on pathofexile.com. */
   profileUrl: string;
+}
+
+/** One item priced from text copied in game (Ctrl+C) or pasted into the app. */
+export interface PriceCheck {
+  at: string;
+  item: PoeItem;
+  price: PriceEstimate;
+  advice?: Advice;
 }

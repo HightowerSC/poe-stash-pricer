@@ -10,7 +10,7 @@ import { NinjaClient } from './ninja';
 import { TradeClient } from './trade';
 import { PricingEngine } from './engine';
 import { StashWatcher } from './watcher';
-import { PublicTabsSource, SessionTabsSource } from './stashSource';
+import { SessionTabsSource } from './stashSource';
 import { sampleItems } from './sampleItems';
 import { demoItems, demoValue } from './demo';
 import { advise } from './extras/advice';
@@ -19,10 +19,12 @@ import { discordPayload, sendDiscord } from './extras/discord';
 import { toCsv } from './extras/csv';
 import { craftReport, demoCraftPricer } from './craft/advisor';
 import { modWeight } from './pricing/tradeQuery';
-import type { CharacterSummary, CharacterView, CraftReport, EquippedItem } from '../shared/types';
+import type { CharacterSummary, CharacterView, CraftReport, EquippedItem, PriceCheck } from '../shared/types';
+import { parseItemText } from './itemText';
 import { buildCharacter, demoCharacter, demoCharacters, sortCharacters, toSummary } from './character';
 
 export type ServiceEvent =
+  | { type: 'checks'; payload: PriceCheck[] }
   | { type: 'items'; payload: PricedItem[] }
   | { type: 'session'; payload: SessionState }
   | { type: 'status'; payload: { text: string; error?: boolean } }
@@ -36,6 +38,8 @@ export class PricerService {
   private profile: Profile | null = null;
   private repriceTimer: ReturnType<typeof setInterval> | null = null;
   private repricing = false;
+  /** Last items priced from Ctrl+C / pasted text, newest first. */
+  private checks: PriceCheck[] = [];
   /** Gear of the last opened character, so the craft advisor works on it too. */
   private characterItems: EquippedItem[] = [];
   private engine: PricingEngine | null = null;
@@ -103,6 +107,33 @@ export class PricerService {
 
   getSession(): SessionState {
     return { summary: this.summary(), value: this.history.value, divineRate: this.divineRate };
+  }
+
+  /**
+   * Forgets the remembered stash items (prices, positions, "already seen") for the current league or all
+   * leagues. Settings, profiles and price history stay. A running watcher starts over and fetches everything again.
+   */
+  async clearItems(all: boolean): Promise<{ removed: number }> {
+    const wasRunning = !!this.watcher && !this.demo;
+    this.stop();
+    const removed = this.items.length;
+    let league = this.league;
+    if (!league) {
+      try { const p = this.activeProfile(); league = p.league !== 'auto' ? p.league : ''; } catch { /* no profile */ }
+    }
+    if (!league) all = true; // league not known yet (not started, "auto"): clear everything
+    const files = fs.readdirSync(this.dataDir).filter((f) => f.startsWith('items-') && f.endsWith('.json'));
+    for (const f of files) {
+      if (all || f === `items-${safe(league)}.json`) fs.rmSync(this.file(f), { force: true });
+    }
+    this.items = [];
+    this.characterItems = [];
+    this.history.value = [];
+    if (this.league) this.writeJson(`history-${safe(this.league)}.json`, this.history);
+    this.pushState();
+    this.status(`Wyczyszczono dane o przedmiotach${all ? ' (wszystkie ligi)' : this.league ? ` (liga ${this.league})` : ''}.`);
+    if (wasRunning) void this.start(false).catch(() => undefined); // starts over in the background
+    return { removed };
   }
 
   resetSession() {
@@ -177,7 +208,7 @@ export class PricerService {
       this.status(`Nie udało się pobrać listy lig (${msg(e)}) – używam ustawienia z profilu.`, true);
     }
     this.league = resolveLeague(profile.league, profile.hardcore, leagues);
-    const trade = new TradeClient(fetch, profile.accountName, profile.stashSource === 'session' ? profile.poesessid.trim() : undefined);
+    const trade = new TradeClient(fetch, profile.accountName, profile.poesessid.trim() || undefined);
     this.trade = trade;
     this.profile = profile;
     const engine = new PricingEngine(profile, this.league, this.ninja, trade);
@@ -196,31 +227,39 @@ export class PricerService {
     } catch (e) {
       this.status(`Nie udało się pobrać modów z trade: ${msg(e)}. Rare będą wyceniane dopiero po ponownym starcie.`, true);
     }
-    const source = profile.stashSource === 'session' ? new SessionTabsSource(profile, this.league, trade) : new PublicTabsSource(profile, this.league, trade);
-    this.status(`Krok 4/4: sprawdzam ${source.label} konta ${profile.accountName}… (wczytano ${count} cen)`);
-
     const store = this.readJson<{ seen: string[]; items: PricedItem[] }>(`items-${safe(this.league)}.json`, { seen: [], items: [] });
     this.items = store.items;
     this.history = this.readJson<HistoryStore>(`history-${safe(this.league)}.json`, emptyHistory());
     this.pushState();
 
+    if (profile.stashSource !== 'session' || !profile.poesessid.trim()) {
+      this.status(`Gotowe (${count} cen z poe.ninja). Skrzynia nie jest skanowana – wyceniaj przedmioty w grze: najedź i naciśnij Ctrl+C. `
+        + 'Aby wczytać całą skrzynię, wpisz POESESSID w ⚙ Ustawieniach.');
+      return { league: this.league, divineRate: this.divineRate };
+    }
+    const source = new SessionTabsSource(profile, this.league, trade);
+    this.status(`Krok 4/4: wczytuję skrzynię konta ${profile.accountName} z serwera GGG… (wczytano ${count} cen)`);
+
     const self = this;
     // Only items we actually priced count as seen (older versions also stored skipped ones, which hid them for good).
-    const pricedIds = new Set(this.items.map((p) => p.item.id));
+    // Items saved without a stash position (older versions) are fetched again so they show up in the tab view.
+    const pricedIds = new Set(this.items.filter((p) => p.location).map((p) => p.item.id));
     this.watcher = new StashWatcher(profile, this.league, source, engine, {
       onItems(newItems) {
         self.divineRate = engine.divineRate ?? self.divineRate;
         const enriched = self.enrich(newItems, profile);
-        self.items = [...enriched, ...self.items].slice(0, 2000);
+        // An item fetched again (e.g. to learn its position) replaces the old entry instead of duplicating it.
+        const old = new Map(self.items.map((p) => [p.item.id, p]));
+        const merged = enriched.map((p) => (old.has(p.item.id) ? { ...p, firstSeen: old.get(p.item.id)!.firstSeen } : p));
+        const ids = new Set(merged.map((p) => p.item.id));
+        self.items = [...merged, ...self.items.filter((p) => !ids.has(p.item.id))].slice(0, 2000);
         recordValue(self.history, self.items);
         self.writeJson(`items-${safe(self.league)}.json`, { seen: self.watcher?.seenIds ?? [], items: self.items });
         self.writeJson(`history-${safe(self.league)}.json`, self.history);
         self.pushState();
         self.notify(enriched, profile);
       },
-      onEmpty: () => this.findOtherLeague(profile, leagues),
       onPresent: (ids, complete) => {
-        // Only trust absence when the scan returned everything (the trade search is capped at 100 results).
         if (!complete) return;
         const present = new Set(ids);
         let changed = false;
@@ -245,7 +284,8 @@ export class PricerService {
 
   /** Doradca craftu for one item: free affixes, bench crafts priced on trade, random crafts with cost. */
   async craftAdvice(itemId: string): Promise<CraftReport> {
-    const gear = this.characterItems.find((e) => e.item.id === itemId);
+    const gear = this.characterItems.find((e) => e.item.id === itemId)
+      ?? (() => { const c = this.checks.find((x) => x.item.id === itemId); return c ? { slot: '', item: c.item, gems: [], price: c.price } : undefined; })();
     const found = this.items.find((p) => p.item.id === itemId)
       ?? (gear ? { item: gear.item, price: gear.price ?? { itemId, source: 'none' as const, chaos: null, low: null, high: null, confidence: 'low' as const, sampleSize: 0, note: '' }, firstSeen: '' } : undefined);
     if (!found) throw new Error('Nie znaleziono przedmiotu.');
@@ -313,20 +353,32 @@ export class PricerService {
     return view;
   }
 
-  /** Nothing visible in this league: look for the account's items in other leagues (once per start). */
-  private async findOtherLeague(profile: Profile, leagues: League[]): Promise<string | null> {
-    if (profile.stashSource === 'session' || !this.trade) return null;
-    const candidates = [...new Set(['Standard', 'Hardcore', ...leagues.filter((l) => l.current).map((l) => l.id)])].filter((l) => l !== this.league);
-    const found: string[] = [];
-    for (const league of candidates.slice(0, 4)) {
-      try {
-        const r = await this.trade.searchAccountItems(league, profile.accountName, profile.realm);
-        if (r.total > 0) found.push(`${league} (${r.total})`);
-      } catch { /* ignore: only a hint */ }
+  getChecks(): PriceCheck[] {
+    return this.checks;
+  }
+
+  /**
+   * Prices an item from the text Path of Exile copies with Ctrl+C (or Ctrl+Alt+C with tiers).
+   * Starts the price data on first use, so it works without scanning the stash.
+   */
+  async checkText(text: string): Promise<PriceCheck> {
+    const item = parseItemText(text);
+    if (!item) throw new Error('To nie wygląda na przedmiot z PoE – w grze najedź na przedmiot i naciśnij Ctrl+C.');
+    let price;
+    if (this.demo) {
+      price = { itemId: item.id, source: 'none' as const, chaos: null, low: null, high: null, confidence: 'low' as const, sampleSize: 0, note: 'Tryb demo – kliknij Start, aby wyceniać prawdziwe przedmioty.' };
+    } else {
+      if (!this.engine) await this.start(false);
+      const engine = this.engine;
+      if (!engine) throw new Error('Nie udało się uruchomić wyceny.');
+      this.status(`Wyceniam skopiowany przedmiot: ${item.name || item.typeLine}…`);
+      price = await engine.price(item);
+      this.status(`Wyceniono: ${item.name || item.typeLine} – ${price.chaos == null ? 'brak ceny' : `${Math.round(price.chaos)}c`}`);
     }
-    return found.length
-      ? `Twoje publiczne przedmioty widać w innej lidze: ${found.join(', ')} – zmień ligę w profilu.`
-      : 'W innych ligach też nic nie widać – sprawdź nazwę konta z numerem i czy zakładka jest „Public”.';
+    const check: PriceCheck = { at: new Date().toISOString(), item, price, advice: advise(item, price, { sellMinChaos: 5 }) };
+    this.checks = [check, ...this.checks].slice(0, 30);
+    this.emit({ type: 'checks', payload: this.checks });
+    return check;
   }
 
   /**

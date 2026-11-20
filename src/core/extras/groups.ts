@@ -86,3 +86,18 @@ export function suggestedTab(p: PricedItem, minValue: number): string {
   const k = kindGroup(p, minValue);
   return KIND_GROUPS.find((g) => g.key === k)?.tab ?? 'Inne';
 }
+
+/** By the stash tab the item lies in (items without a known position go to "Bez pozycji"). */
+export function groupByTab(items: PricedItem[]): Group[] {
+  const map = new Map<string, PricedItem[]>();
+  for (const p of items) {
+    const tab = p.location?.tab ?? '';
+    map.set(tab, [...(map.get(tab) ?? []), p]);
+  }
+  return [...map.entries()]
+    .sort((a, b) => (a[0] === '' ? 1 : b[0] === '' ? -1 : a[0].localeCompare(b[0], 'pl')))
+    .map(([tab, list]) => {
+      const sorted = list.sort((a, b) => (b.price.chaos ?? -1) - (a.price.chaos ?? -1));
+      return { key: `tab-${tab}`, label: tab ? `Zakładka „${tab}”` : 'Bez pozycji w skrzyni', suggestedTab: tab || '—', items: sorted, totalChaos: sum(sorted) };
+    });
+}

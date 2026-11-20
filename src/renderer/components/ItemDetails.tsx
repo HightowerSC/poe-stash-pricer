@@ -100,7 +100,7 @@ export function ItemDetails({ data, currency, divine, minValue, onClose }: Props
             <div className="advice-title">Gdzie leży</div>
             <div className="small">{positionLabel(data.location)}</div>
             <div className="small muted">Pasuje do zakładki: „{suggestedTab(data, minValue ?? 0)}”</div>
-            {data.present === false && <div className="small error-text">Przedmiotu nie ma już w publicznej zakładce.</div>}
+            {data.present === false && <div className="small error-text">Przedmiotu nie ma już w skrzyni.</div>}
           </div>
         </div>
       )}

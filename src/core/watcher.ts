@@ -96,11 +96,8 @@ export class StashWatcher {
   private describe(total: number, waiting: number, skipped: number, tabs: string[]): string {
     const time = new Date().toLocaleTimeString();
     if (total === 0) {
-      const base = this.profile.stashSource === 'session'
-        ? `${time} · Zakładki konta ${this.profile.accountName} w lidze ${this.league} są puste.`
-        : `${time} · Nie znaleziono żadnych przedmiotów konta ${this.profile.accountName} w lidze ${this.league}. `
-          + 'Ustaw w grze zakładkę jako „Public” (bez ceny) – przedmioty pojawiają się na trade po ok. 5 minutach. '
-          + 'Albo włącz w profilu „Wszystkie zakładki (POESESSID)”.';
+      const base = `${time} · Zakładki konta ${this.profile.accountName} w lidze ${this.league} są puste`
+        + (this.profile.watchedTab ? ` (sprawdzane tylko: ${this.profile.watchedTab})` : '') + '.';
       return this.emptyHint ? `${base} ${this.emptyHint}` : base;
     }
     const parts = [`${time} · Widać ${total} Twoich przedmiotów (${this.source.label})`];
