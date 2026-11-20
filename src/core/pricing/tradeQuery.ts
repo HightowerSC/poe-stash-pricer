@@ -105,7 +105,8 @@ const RES_PATTERNS: [RegExp, number][] = [
 ];
 
 export function pseudoTotals(item: PoeItem): { eleRes: number; life: number; resLines: string[]; lifeLines: string[] } {
-  const lines = [...(item.implicitMods ?? []), ...(item.explicitMods ?? []), ...(item.craftedMods ?? []), ...(item.fracturedMods ?? [])];
+  const lines = [...(item.implicitMods ?? []), ...(item.explicitMods ?? []), ...(item.craftedMods ?? []), ...(item.fracturedMods ?? [])]
+    .filter((l): l is string => typeof l === 'string');
   let eleRes = 0;
   let life = 0;
   const resLines: string[] = [];
@@ -149,7 +150,7 @@ export function statFilters(item: PoeItem, index: StatIndex, ratio = 0.85): Stat
   ];
   for (const [type, lines] of groups) {
     for (const line of lines ?? []) {
-      if (skip.has(line)) continue;
+      if (typeof line !== 'string' || skip.has(line)) continue;
       const found = lookup(index, line, type);
       if (!found) continue;
       const { hit, value } = found;

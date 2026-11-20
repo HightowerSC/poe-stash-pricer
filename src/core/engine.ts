@@ -9,6 +9,7 @@ import type { PoeItem, PriceEstimate, Profile } from '../shared/types';
 import { NinjaClient } from './ninja';
 import type { FetchLike } from './http';
 import { poepricesOpinion } from './extras/poeprices';
+import { normalizeItem } from './normalize';
 import { TradeClient, toComparables } from './trade';
 import { NinjaIndex } from './pricing/ninjaMatch';
 import { summarizeListings } from './pricing/listings';
@@ -123,7 +124,7 @@ export class PricingEngine {
 
     const listings = await this.trade.fetch(last.ids.slice(0, 20), last.id);
     const comparables = listings.flatMap((l) =>
-      toComparables([l], (c) => this.chaosRates.get(c) ?? null, similarity(last!.chosen, l.item, this.stats)),
+      toComparables([l], (c) => this.chaosRates.get(c) ?? null, similarity(last!.chosen, normalizeItem(l.item), this.stats)),
     );
     const summary = summarizeListings(comparables);
     return {

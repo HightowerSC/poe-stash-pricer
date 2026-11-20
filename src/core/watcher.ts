@@ -1,6 +1,7 @@
 // Polls the trade site for items in the user's public tabs and prices the ones not seen before.
 
-import type { PricedItem, Profile } from '../shared/types';
+import type { PoeItem, PriceEstimate, PricedItem, Profile } from '../shared/types';
+import { normalizeItem } from './normalize';
 import type { PricingEngine } from './engine';
 import type { TradeClient } from './trade';
 
@@ -62,8 +63,9 @@ export class StashWatcher {
           otherTab++;
           continue;
         }
-        this.events.onStatus(`Wyceniam ${i + 1}/${listings.length}: ${l.item?.name || l.item?.typeLine || 'przedmiot'}…`);
-        priced.push({ item: l.item, price: await this.engine.price(l.item), firstSeen: new Date().toISOString() });
+        const item = normalizeItem(l.item);
+        this.events.onStatus(`Wyceniam ${i + 1}/${listings.length}: ${item.name || item.typeLine || 'przedmiot'}…`);
+        priced.push({ item, price: await this.safePrice(item), firstSeen: new Date().toISOString() });
         if (priced.length % 5 === 0) {
           this.events.onItems(priced.splice(0));
         }
@@ -71,9 +73,21 @@ export class StashWatcher {
       if (priced.length) this.events.onItems(priced);
       this.events.onStatus(this.describe(search.total, unseen.length - batch.length, otherTab, tabs));
     } catch (e) {
+      console.error('Błąd sprawdzania zakładek:', e);
       this.events.onError(e instanceof Error ? e.message : String(e));
     } finally {
       this.timer = setTimeout(() => void this.tick(), this.profile.pollSeconds * 1000);
+    }
+  }
+
+  /** One unusual item must never stop the rest from being priced. */
+  private async safePrice(item: PoeItem): Promise<PriceEstimate> {
+    try {
+      return await this.engine.price(item);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error(`Błąd wyceny "${item.name || item.typeLine}":`, e);
+      return { itemId: item.id, source: 'none', chaos: null, low: null, high: null, confidence: 'low', sampleSize: 0, note: `Błąd wyceny: ${message}` };
     }
   }
 
