@@ -36,6 +36,13 @@ Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym
 2. Przy pierwszym uruchomieniu kreator zapyta o nazwę konta, ligę i zakładki – krok po kroku, z podpowiedziami.
 3. Gotowe. Program sam sprawdza aktualizacje i proponuje instalację nowej wersji.
 
+## Aktualizacje i skróty klawiszowe
+
+- **Aktualizacje:** przycisk z numerem wersji na górnym pasku (np. `v0.11.0`) otwiera ekran aktualizacji: **Sprawdź aktualizacje**, lista zmian nowej wersji, pobieranie z paskiem postępu i **Zainstaluj i uruchom ponownie**. Gdy jest nowa wersja, przycisk świeci się na złoto. Program sprawdza sam co kilka godzin; automatyczne pobieranie można wyłączyć. Bez internetu nic nie wyskakuje – na ekranie aktualizacji jest zrozumiały komunikat.
+- **Windows i Inteligentna kontrola aplikacji (Smart App Control):** instalator nie ma płatnego podpisu, więc Windows może go zablokować. Program to zauważy po ponownym uruchomieniu i podpowie, co zrobić – najprościej pobrać instalator ręcznie przyciskiem **Pobierz instalator ręcznie**. Ustawienia zostają.
+- **Linux:** aktualizuje się sam plik `.AppImage` – trzymaj go w folderze, do którego możesz pisać (np. folder domowy).
+- **Skróty klawiszowe:** przycisk **⌨ Skróty** na górnym pasku (albo zasobnik → „Skróty klawiszowe i aktualizacje…”). Kliknij **Zmień** i naciśnij nową kombinację. Program nie pozwoli dać jednej kombinacji dwóm akcjom, ostrzeże przed Ctrl+Alt+litera, która na polskiej klawiaturze jest polską literą (ą, ś…), i powie, gdy kombinację zajął inny program. **Przywróć wszystkie domyślne** cofa zmiany. Ctrl+C to skrót samej gry – nie da się go zmienić, można tylko wyłączyć automatyczną wycenę.
+
 To jedna aplikacja (to samo na obu systemach): okno z wyceną, ikona w zasobniku obok zegara i overlay w grze. Ustawienia i historia są zapisywane w folderze `.poe-stash-pricer` w katalogu domowym.
 
 ### Dla programistów
@@ -56,7 +63,7 @@ Linux: najlepiej działa z zainstalowanym `xclip` (Mint/Ubuntu: `sudo apt instal
 
 ## Overlay w grze
 
-Przezroczysta warstwa nad grą z cenami na polach otwartej zakładki (wymaga wczytanej skrzyni). Włączasz ją skrótem **Ctrl+Alt+P** albo z ikony w zasobniku („Ceny na skrzyni w grze”).
+Przezroczysta warstwa nad grą z cenami na polach otwartej zakładki (wymaga wczytanej skrzyni). Włączasz ją skrótem **Ctrl+Alt+P** (domyślnie – każdy skrót można zmienić w **⌨ Skróty**) albo z ikony w zasobniku („Ceny na skrzyni w grze”).
 
 - Gra musi działać w trybie **Windowed Fullscreen** (borderless), nie w pełnym ekranie.
 - **Ctrl+Alt+K** – kalibracja: przeciągnij złotą ramkę na pola zakładki 12×12, kółkiem w rogu zmień rozmiar (strzałki i +/− do precyzji, Enter zapisuje). Robisz to raz na rozdzielczość.

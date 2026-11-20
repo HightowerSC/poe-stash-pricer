@@ -10,6 +10,8 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu, nativeImage, dialog, clipboard } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
+const { setupShortcuts } = require('./shortcuts.cjs');
+const { setupUpdater } = require('./updater.cjs');
 
 const PORT = Number(process.env.PORT || 5317);
 const SERVER = `http://127.0.0.1:${PORT}`;
@@ -28,6 +30,8 @@ if (!app.requestSingleInstanceLock()) {
 let main = null;
 let overlay = null;
 let tray = null;
+let keys = null; // global shortcuts (desktop/shortcuts.cjs)
+let updates = null; // program updates (desktop/updater.cjs)
 const state = { overlayOn: false, calibrating: false, tabIndex: 0, items: [], minValue: 0, grids: {}, clipWatch: true, popup: null, notifyMode: null };
 const CONFIG = () => path.join(app.getPath('userData'), 'overlay.json');
 
@@ -63,7 +67,7 @@ function createMain() {
     backgroundColor: '#14120f',
     icon: ICON,
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: { preload: path.join(__dirname, 'main-preload.cjs'), contextIsolation: true, nodeIntegration: false },
   });
   main.removeMenu();
   // Links to trade, poedb, profiles… open in the normal browser.
@@ -308,14 +312,18 @@ ipcMain.on('overlay:reset-grid', () => { delete state.grids[displayKey()]; saveC
 function updateTray() {
   if (!tray) return;
   const t = tabs();
+  const k = (id) => (keys && keys.label(id) ? ` (${keys.label(id)})` : '');
+  const u = updates ? updates.state() : null;
+  const updateLabel = u && u.status === 'downloaded' ? `Zainstaluj wersję ${u.version} i uruchom ponownie`
+    : u && (u.status === 'available' || u.status === 'downloading') ? `Aktualizacja ${u.version}…` : 'Sprawdź aktualizacje';
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Pokaż aplikację', click: showMain },
     { type: 'separator' },
-    { label: 'Wyceń schowek teraz (Ctrl+Alt+D)', click: () => void priceClipboardNow() },
-    { label: 'Wycena po Ctrl+C w grze', type: 'checkbox', checked: state.clipWatch, click: () => { state.clipWatch = !state.clipWatch; saveConfig(); updateTray(); } },
-    { label: 'Ceny na skrzyni w grze (Ctrl+Alt+P)', type: 'checkbox', checked: state.overlayOn, click: toggleOverlay },
-    { label: 'Kalibruj siatkę skrzynki (Ctrl+Alt+K)', click: toggleCalibration },
-    { label: 'Następna zakładka (Ctrl+Alt+→)', click: () => switchTab(1), enabled: t.length > 1 },
+    { label: `Wyceń schowek teraz${k('priceNow')}`, click: () => void priceClipboardNow() },
+    { label: 'Wycena po Ctrl+C w grze', type: 'checkbox', checked: state.clipWatch, click: () => setClipWatch(!state.clipWatch) },
+    { label: `Ceny na skrzyni w grze${k('overlay')}`, type: 'checkbox', checked: state.overlayOn, click: toggleOverlay },
+    { label: `Kalibruj siatkę skrzynki${k('calibrate')}`, click: toggleCalibration },
+    { label: `Następna zakładka${k('nextTab')}`, click: () => switchTab(1), enabled: t.length > 1 },
     ...t.map((x, i) => ({ label: `Zakładka: ${x.tab}`, type: 'radio', checked: i === state.tabIndex, click: () => { state.tabIndex = i; saveConfig(); pushOverlay(); } })),
     { type: 'separator' },
     {
@@ -328,32 +336,27 @@ function updateTray() {
       ],
     },
     { type: 'separator' },
-    { label: 'Sprawdź aktualizacje', click: () => checkUpdates(true) },
+    { label: 'Skróty klawiszowe i aktualizacje…', click: () => openDesktopSettings() },
+    { label: updateLabel, click: () => openDesktopSettings(true) },
+    { label: `Wersja ${app.getVersion()}`, enabled: false },
     { label: 'Zamknij', click: () => app.quit() },
   ]));
 }
 
-// ---------- updates ----------
+function setClipWatch(on) {
+  state.clipWatch = on;
+  saveConfig();
+  updateTray();
+  if (keys) keys.broadcast();
+}
 
-function checkUpdates(manual) {
-  if (!app.isPackaged) {
-    if (manual) void dialog.showMessageBox({ message: 'Aktualizacje działają w wersji zainstalowanej z instalatora.' });
-    return;
-  }
-  try {
-    const { autoUpdater } = require('electron-updater');
-    autoUpdater.autoDownload = true;
-    if (manual) {
-      autoUpdater.once('update-not-available', () => void dialog.showMessageBox({ message: 'Masz najnowszą wersję.' }));
-      autoUpdater.once('error', (e) => void dialog.showMessageBox({ type: 'warning', message: `Nie udało się sprawdzić aktualizacji: ${e.message}` }));
-    }
-    autoUpdater.once('update-downloaded', async (info) => {
-      const r = await dialog.showMessageBox({ message: `Nowa wersja ${info.version} jest gotowa.`, detail: 'Zainstalować teraz? Aplikacja uruchomi się ponownie.', buttons: ['Zainstaluj teraz', 'Przy następnym uruchomieniu'], defaultId: 0 });
-      if (r.response === 0) autoUpdater.quitAndInstall();
-    });
-    void autoUpdater.checkForUpdates();
-  } catch (e) {
-    if (manual) void dialog.showMessageBox({ type: 'warning', message: `Aktualizacje niedostępne: ${e.message}` });
+/** Opens the app on the "Program" settings screen (shortcuts + updates); check=true also checks for updates. */
+function openDesktopSettings(check) {
+  showMain();
+  if (main) main.webContents.send('desktop:open-settings');
+  if (check && updates) {
+    const s = updates.state().status;
+    if (s === 'idle' || s === 'not-available' || s === 'error') void updates.check(true);
   }
 }
 
@@ -361,6 +364,7 @@ function checkUpdates(manual) {
 
 app.whenReady().then(async () => {
   loadConfig();
+  updates = setupUpdater({ onChange: () => updateTray() });
   startServer();
   if (!(await waitForServer())) {
     dialog.showErrorBox('PoE Stash Pricer', `Nie udało się uruchomić serwera aplikacji na porcie ${PORT}. Zamknij inne kopie programu i spróbuj ponownie.`);
@@ -372,15 +376,23 @@ app.whenReady().then(async () => {
   tray.setToolTip('PoE Stash Pricer');
   tray.on('click', showMain);
   updateTray();
-  globalShortcut.register('CommandOrControl+Alt+P', toggleOverlay);
-  globalShortcut.register('CommandOrControl+Alt+Right', () => switchTab(1));
-  globalShortcut.register('CommandOrControl+Alt+Left', () => switchTab(-1));
-  globalShortcut.register('CommandOrControl+Alt+K', toggleCalibration);
-  // Price what is in the clipboard now (for when automatic Ctrl+C pricing is turned off).
-  globalShortcut.register('CommandOrControl+Alt+D', () => void priceClipboardNow());
+  keys = setupShortcuts({
+    handlers: {
+      overlay: toggleOverlay,
+      nextTab: () => switchTab(1),
+      prevTab: () => switchTab(-1),
+      calibrate: toggleCalibration,
+      // Price what is in the clipboard now (for when automatic Ctrl+C pricing is turned off).
+      priceNow: () => void priceClipboardNow(),
+      showApp: showMain,
+    },
+    getClipWatch: () => state.clipWatch,
+    setClipWatch,
+    onChange: updateTray,
+  });
+  updateTray();
   // Linux compositors need a moment before a transparent window can be created.
   setTimeout(() => { void poll(); setInterval(poll, 5000); }, process.platform === 'linux' ? 500 : 0);
-  setTimeout(() => checkUpdates(false), 5000);
   watchClipboard();
 });
 

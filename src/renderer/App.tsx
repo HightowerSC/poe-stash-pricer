@@ -13,6 +13,7 @@ import { ChecksView } from './components/ChecksView';
 import { ChallengesView } from './components/ChallengesView';
 import { MarketView } from './components/MarketView';
 import { FarmView } from './components/FarmView';
+import { ProgramSettings, UpdateBadge } from './components/ProgramSettings';
 import type { PriceCheck } from '../shared/types';
 import { formatPrice } from './format';
 import { isBelowMin } from '../core/config';
@@ -34,6 +35,9 @@ export function App() {
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
   const [checks, setChecks] = useState<PriceCheck[]>([]);
+  /** Desktop app: shortcut and update screen (opened from the top bar or the tray menu). */
+  const [program, setProgram] = useState<null | 'shortcuts' | 'updates'>(null);
+  useEffect(() => window.desktop?.onOpenSettings(() => setProgram('shortcuts')), []);
   const [view, setView] = useState<'list' | 'stash' | 'groups' | 'character' | 'check' | 'challenges' | 'market' | 'farm'>(() => {
     try {
       const v = localStorage.getItem('pricer-view');
@@ -150,6 +154,8 @@ export function App() {
 
   if (!settings) return <div className="splash">Wczytywanie…</div>;
 
+  if (program) return <ProgramSettings focus={program} onClose={() => setProgram(null)} />;
+
   if (!profile || editing) {
     return (
       <div className="wizard-page">
@@ -186,6 +192,7 @@ export function App() {
           )}
           <button className="btn ghost" onClick={repriceAll} disabled={items.length === 0} title="Wycenia ponownie wszystkie przedmioty według aktualnego rynku">↻ Przelicz</button>
           <button className="btn ghost" onClick={exportCsv} disabled={items.length === 0}>⭳ CSV</button>
+          <UpdateBadge onOpen={setProgram} />
           <button className="btn ghost" onClick={() => setEditing(true)} aria-label="Ustawienia">⚙ Ustawienia</button>
         </div>
       </header>
