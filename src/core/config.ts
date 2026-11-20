@@ -14,6 +14,8 @@ export function newProfile(partial: Partial<Profile> = {}): Profile {
     notifyMinChaos: partial.notifyMinChaos ?? 10,
     displayCurrency: partial.displayCurrency ?? 'chaos',
     pollSeconds: Math.max(MIN_POLL_SECONDS, partial.pollSeconds ?? 180),
+    discordWebhook: partial.discordWebhook ?? '',
+    usePoeprices: partial.usePoeprices ?? false,
   };
 }
 
@@ -31,6 +33,9 @@ export function validateProfile(p: Profile): string[] {
   if (!p.league.trim()) errors.push('Wybierz ligę.');
   if (p.pollSeconds < MIN_POLL_SECONDS) {
     errors.push(`Sprawdzanie nie częściej niż co ${MIN_POLL_SECONDS} s (limity GGG).`);
+  }
+  if (p.discordWebhook && !isDiscordWebhook(p.discordWebhook)) {
+    errors.push('Webhook Discord musi zaczynać się od https://discord.com/api/webhooks/');
   }
   if (p.notifyMinChaos < 0) errors.push('Próg powiadomień nie może być ujemny.');
   return errors;
@@ -53,4 +58,13 @@ export function resolveLeague(setting: string, hardcore: boolean, leagues: Leagu
   const current = leagues.find((l) => l.current && l.hardcore === hardcore);
   if (current) return current.id;
   return hardcore ? 'Hardcore' : 'Standard';
+}
+
+export function isDiscordWebhook(url: string): boolean {
+  return /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(url.trim());
+}
+
+/** Fills in fields added in later versions, so old settings files keep working. */
+export function upgradeProfile(p: Partial<Profile>): Profile {
+  return newProfile(p);
 }

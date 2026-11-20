@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { League, Profile } from '../../shared/types';
-import { newProfile, validateProfile } from '../../core/config';
+import { isDiscordWebhook, newProfile, validateProfile } from '../../core/config';
 
 interface Props {
   initial?: Profile;
@@ -17,13 +17,26 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
     void window.pricer.listLeagues().then(setLeagues);
   }, []);
 
+  const [discordState, setDiscordState] = useState('');
+
+  async function testDiscord() {
+    setDiscordState('Wysyłam…');
+    try {
+      await window.pricer.testDiscord(p.discordWebhook.trim());
+      setDiscordState('Wysłano ✓');
+    } catch {
+      setDiscordState('Błąd ✗');
+    }
+    setTimeout(() => setDiscordState(''), 2500);
+  }
+
   const set = <K extends keyof Profile>(k: K, v: Profile[K]) => setP({ ...p, [k]: v });
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const errs = validateProfile(p);
     setErrors(errs);
-    if (errs.length === 0) onSave({ ...p, accountName: p.accountName.trim() });
+    if (errs.length === 0) onSave({ ...p, accountName: p.accountName.trim(), discordWebhook: p.discordWebhook.trim() });
   }
 
   return (
@@ -84,6 +97,18 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
           </select>
         </label>
       </div>
+      <label>
+        Webhook Discord (opcjonalnie)
+        <div className="inline">
+          <input placeholder="https://discord.com/api/webhooks/…" value={p.discordWebhook} onChange={(e) => set('discordWebhook', e.target.value)} />
+          <button type="button" className="btn ghost" disabled={!isDiscordWebhook(p.discordWebhook)} onClick={testDiscord}>{discordState || 'Test'}</button>
+        </div>
+        <span className="hint">Powiadomienia o drogich dropach na Twój kanał. Discord → Ustawienia kanału → Integracje → Webhooki.</span>
+      </label>
+      <label className="check wide">
+        <input type="checkbox" checked={p.usePoeprices} onChange={(e) => set('usePoeprices', e.target.checked)} />
+        Druga opinia z poeprices.info dla przedmiotów rare (wolniejsze, serwis bywa niedostępny)
+      </label>
       {errors.length > 0 && <ul className="errors">{errors.map((e) => <li key={e}>{e}</li>)}</ul>}
       <div className="form-actions">
         {onCancel && <button type="button" className="btn ghost" onClick={onCancel}>Anuluj</button>}

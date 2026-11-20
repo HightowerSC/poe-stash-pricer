@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AppSettings, PricedItem, Profile } from '../shared/types';
+import type { SessionState } from '../shared/api';
+import { Sparkline } from './components/Sparkline';
 import { ProfileForm } from './components/ProfileForm';
 import { ItemCard } from './components/ItemCard';
 import { ItemDetails } from './components/ItemDetails';
@@ -18,13 +20,20 @@ export function App() {
   const [selected, setSelected] = useState<PricedItem | null>(null);
   const [sort, setSort] = useState<SortKey>('value');
   const [filter, setFilter] = useState('');
+  const [session, setSession] = useState<SessionState | null>(null);
+  const [toast, setToast] = useState('');
 
   useEffect(() => {
     void window.pricer.getSettings().then(setSettings);
     void window.pricer.getItems().then(setItems);
     const offItems = window.pricer.onItems(setItems);
     const offStatus = window.pricer.onStatus(setStatus);
-    return () => { offItems(); offStatus(); };
+    void window.pricer.getSession().then(setSession);
+    const offSession = window.pricer.onSession((st) => {
+      setSession(st);
+      if (st.divineRate) setDivine(st.divineRate);
+    });
+    return () => { offItems(); offStatus(); offSession(); };
   }, []);
 
   const profile = settings?.profiles.find((p) => p.id === settings.activeProfileId) ?? null;
@@ -56,6 +65,14 @@ export function App() {
       setRunning(true);
     } catch (e) {
       setStatus({ text: e instanceof Error ? e.message : String(e), error: true });
+    }
+  }
+
+  async function exportCsv() {
+    const file = await window.pricer.exportCsv();
+    if (file) {
+      setToast(`Zapisano: ${file}`);
+      setTimeout(() => setToast(''), 3000);
     }
   }
 
@@ -98,19 +115,34 @@ export function App() {
               <button className="btn ghost" onClick={() => start(true)}>Demo</button>
             </>
           )}
+          <button className="btn ghost" onClick={exportCsv} disabled={items.length === 0}>⭳ CSV</button>
           <button className="btn ghost" onClick={() => setEditing(true)} aria-label="Ustawienia">⚙ Ustawienia</button>
         </div>
       </header>
 
       <section className="stats">
-        <Stat label="Wartość nowych przedmiotów" value={formatPrice(total, currency, divine)} />
-        <Stat label="Przedmiotów" value={String(items.length)} />
+        <Stat label="Wartość przedmiotów" value={formatPrice(total, currency, divine)} />
+        <Stat label="Sesja: na godzinę" value={session ? formatPrice(session.summary.chaosPerHour, currency, divine) : '—'} />
+        <Stat
+          label="Najlepszy drop sesji"
+          value={session?.summary.best ? formatPrice(session.summary.best.chaos, currency, divine) : '—'}
+          hint={session?.summary.best?.name}
+        />
         <Stat label="Kurs divine" value={divine ? `${Math.round(divine)}c` : '—'} />
-        <div className={`status ${status.error ? 'error' : ''}`}>
-          <span className={`dot ${running ? 'on' : ''}`} />
-          {status.text}
+        <div className="stat chart">
+          <div className="chart-head">
+            <span className="stat-label">Wartość w czasie</span>
+            <button className="link" onClick={() => window.pricer.resetSession()}>Nowa sesja</button>
+          </div>
+          <Sparkline points={session?.value ?? []} height={56} format={(c) => formatPrice(c, currency, divine)} />
         </div>
       </section>
+      <div className={`status-line ${status.error ? 'error' : ''}`}>
+        <span className={`dot ${running ? 'on' : ''}`} />
+        {status.text}
+        {session && session.summary.itemCount > 0 && <span className="muted"> · w tej sesji: {session.summary.itemCount} przedm., {formatPrice(session.summary.totalChaos, currency, divine)}</span>}
+        {toast && <span className="toast">{toast}</span>}
+      </div>
 
       <section className="toolbar">
         <h2>Nowe przedmioty</h2>
@@ -142,11 +174,11 @@ export function App() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="stat">
+    <div className="stat" title={hint}>
       <div className="stat-value">{value}</div>
-      <div className="stat-label">{label}</div>
+      <div className="stat-label">{label}{hint ? <span className="stat-hint"> · {hint}</span> : null}</div>
     </div>
   );
 }

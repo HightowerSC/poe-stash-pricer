@@ -111,6 +111,7 @@ export class NinjaIndex {
       high: round(unit * qty * 1.1),
       confidence,
       sampleSize: listings,
+      change7d: row.change7d,
       note: qty > 1 ? `${qty} × ${round(unit)}c (${row.category})` : `${row.category}${row.variant ? `, ${row.variant}` : ''}`,
     };
   }
@@ -127,6 +128,7 @@ function fromRow(item: PoeItem, row: NinjaRow, note: string): PriceEstimate {
     confidence: listings >= 20 ? 'high' : listings >= 5 ? 'medium' : 'low',
     sampleSize: listings,
     note,
+    change7d: row.change7d,
   };
 }
 

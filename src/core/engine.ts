@@ -7,6 +7,8 @@
 
 import type { PoeItem, PriceEstimate, Profile } from '../shared/types';
 import { NinjaClient } from './ninja';
+import type { FetchLike } from './http';
+import { poepricesOpinion } from './extras/poeprices';
 import { TradeClient, toComparables } from './trade';
 import { NinjaIndex } from './pricing/ninjaMatch';
 import { summarizeListings } from './pricing/listings';
@@ -32,6 +34,7 @@ export class PricingEngine {
     private readonly league: string,
     private readonly ninja: NinjaClient,
     private readonly trade: TradeClient,
+    private readonly poepricesFetch: FetchLike = fetch,
   ) {}
 
   async refreshPrices(force = false) {
@@ -53,6 +56,18 @@ export class PricingEngine {
   }
 
   async price(item: PoeItem): Promise<PriceEstimate> {
+    const estimate = await this.priceInner(item);
+    if (this.profile.usePoeprices && rarity(item) === 'rare' && item.identified !== false) {
+      const op = await poepricesOpinion(this.poepricesFetch, this.league, item);
+      if (op) {
+        const rate = op.currency === 'divine' ? this.chaosRates.get('divine') ?? 0 : 1;
+        estimate.poeprices = { ...op, chaos: Math.round(((op.min + op.max) / 2) * rate) };
+      }
+    }
+    return estimate;
+  }
+
+  private async priceInner(item: PoeItem): Promise<PriceEstimate> {
     const kind = classify(item);
     const r = rarity(item);
 

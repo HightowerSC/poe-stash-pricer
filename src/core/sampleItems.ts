@@ -19,6 +19,13 @@ export function sampleItems(): PricedItem[] {
         id: 's2', name: 'Doom Stride', typeLine: 'Two-Toned Boots', baseType: 'Two-Toned Boots', icon: `${ICON}Armours/Boots/TwoTonedBoots.png`, ilvl: 84, frameType: 2,
         implicitMods: ['+12% to Fire and Cold Resistances'],
         explicitMods: ['+82 to maximum Life', '30% increased Movement Speed', '+41% to Cold Resistance', '+38% to Lightning Resistance', '+46 to Accuracy Rating'],
+        extended: {
+          mods: { explicit: [
+            { name: 'Virile', tier: 'P2' }, { name: 'of the Cheetah', tier: 'P1' }, { name: 'of the Polar Bear', tier: 'S2' },
+            { name: 'of the Squall', tier: 'S3' }, { name: 'of the Ranger', tier: 'P7' },
+          ] },
+          hashes: { explicit: [['a', [0]], ['b', [1]], ['c', [2]], ['d', [3]], ['e', [4]]] },
+        },
       },
       price: {
         itemId: 's2', source: 'trade', chaos: 95, low: 80, high: 110, confidence: 'medium', sampleSize: 7, note: '7 ofert (odrzucono 1 podejrzanie tanich); wymagane mody: 4',

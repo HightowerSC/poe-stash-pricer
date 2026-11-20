@@ -152,3 +152,55 @@ input:focus, select:focus { outline: none; border-color: var(--gold); box-shadow
 ::-webkit-scrollbar-thumb { background: #3a3326; border-radius: 5px; }
 .tt-body:empty { display: none; }
 .tt-head:only-child, .tooltip > .tt-head:has(+ .tt-body:empty) { border-bottom: 0; }
+
+/* --- extras: trend, advice, tiers, notes, charts --- */
+.stats { align-items: stretch; }
+.stat-hint { color: var(--text); }
+.stat.chart { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 4px; }
+.chart-head { display: flex; justify-content: space-between; align-items: center; }
+.link { background: none; border: 0; color: var(--gold); font-size: 12px; padding: 0; }
+.link:hover { text-decoration: underline; }
+.status-line { display: flex; align-items: center; gap: 8px; padding: 6px 24px 0; color: var(--muted); font-size: 13px; }
+.status-line.error { color: var(--bad); }
+.toast { margin-left: auto; color: var(--good); }
+.spark { display: block; }
+.spark-label { fill: var(--muted); font-size: 10px; font-family: Inter, sans-serif; }
+.spark-empty { color: #5d5647; font-size: 12px; padding: 14px 0; }
+
+.trend { display: inline-block; font-size: 11px; margin-top: 2px; }
+.trend.up { color: var(--good); }
+.trend.down { color: var(--bad); }
+.trend.flat { color: var(--muted); }
+
+.advice { display: inline-block; margin-top: 5px; font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.advice.sell { border-color: #5fb36a88; color: #8fd398; }
+.advice.craft { border-color: #8888ff88; color: #aab0ff; }
+.advice.recipe { border-color: #d8a74088; color: #e6c27a; }
+.advice.check { border-color: #c0584a88; color: #e08b80; }
+.advice.keep { border-color: #aa9e8288; color: #cfc4a8; }
+
+.advice-box { border: 1px solid var(--line); border-left: 3px solid var(--muted); border-radius: 8px; padding: 10px 12px; margin: 12px 0; background: #0006; }
+.advice-box.sell { border-left-color: var(--good); }
+.advice-box.craft { border-left-color: var(--magic); }
+.advice-box.recipe { border-left-color: var(--mid); }
+.advice-box.check { border-left-color: var(--bad); }
+.advice-title { font-weight: 600; margin-bottom: 2px; }
+
+.note-row { display: flex; gap: 8px; align-items: center; }
+.note { flex: 1; background: #0b0a08; border: 1px dashed var(--gold); border-radius: 8px; padding: 8px 10px; color: var(--gold-2); font-size: 13px; }
+.second-opinion { margin-top: 6px; font-size: 12px; }
+
+.section { margin-top: 16px; }
+.section h3 { font-family: Cinzel, Georgia, serif; font-weight: 500; font-size: 15px; margin: 0 0 8px; display: flex; gap: 8px; align-items: baseline; }
+
+.tier { display: inline-block; min-width: 24px; margin-right: 6px; padding: 0 4px; border-radius: 4px; font-size: 10px; font-weight: 700; color: #111; vertical-align: 1px; }
+.tier.t1 { background: #e2c27a; }
+.tier.t2 { background: #b9c3d0; }
+.tier.t3 { background: #a07a55; }
+.tier.t4 { background: #4a443a; color: #bbb; }
+.mod.enchant { color: #b8daf2; }
+
+.form .inline { display: flex; gap: 8px; }
+.form .check.wide { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
+.form .check.wide input { width: auto; }
+button:disabled { opacity: .45; cursor: default; }

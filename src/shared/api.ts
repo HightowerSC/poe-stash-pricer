@@ -1,6 +1,13 @@
 // The bridge exposed by the preload script as window.pricer.
 
-import type { AppSettings, League, PricedItem } from './types';
+import type { AppSettings, League, PricedItem, PricePoint, SessionSummary } from './types';
+
+export interface SessionState {
+  summary: SessionSummary;
+  /** Total value of tracked items over time. */
+  value: PricePoint[];
+  divineRate: number | null;
+}
 
 export interface PricerApi {
   getSettings(): Promise<AppSettings>;
@@ -10,8 +17,13 @@ export interface PricerApi {
   start(demo: boolean): Promise<{ league: string; divineRate: number | null }>;
   stop(): Promise<void>;
   getItems(): Promise<PricedItem[]>;
+  getSession(): Promise<SessionState>;
+  resetSession(): Promise<void>;
+  exportCsv(): Promise<string | null>;
+  testDiscord(webhook: string): Promise<void>;
   openExternal(url: string): Promise<void>;
   onItems(cb: (items: PricedItem[]) => void): () => void;
+  onSession(cb: (s: SessionState) => void): () => void;
   onStatus(cb: (status: { text: string; error?: boolean }) => void): () => void;
 }
 

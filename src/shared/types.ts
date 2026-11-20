@@ -20,6 +20,10 @@ export interface Profile {
   displayCurrency: 'chaos' | 'divine';
   /** Seconds between checks for new items. Never below 120. */
   pollSeconds: number;
+  /** Optional Discord webhook for notifications about valuable drops. */
+  discordWebhook: string;
+  /** Ask poeprices.info for a second opinion on rares. */
+  usePoeprices: boolean;
 }
 
 export interface AppSettings {
@@ -60,7 +64,13 @@ export interface PoeItem {
   synthesised?: boolean;
   duplicated?: boolean;
   /** GGG "extended" block from trade results, e.g. { category: 'jewels', subcategories: ['abyss'] }. */
-  extended?: { category?: string; subcategories?: string[] };
+  extended?: {
+    category?: string;
+    subcategories?: string[];
+    /** Trade results only: mod details (name, tier like "P1"/"S3") and which mod lines they produced. */
+    mods?: Record<string, { name: string; tier: string; level?: number }[]>;
+    hashes?: Record<string, [string, number[] | null][]>;
+  };
 }
 
 export type PriceSource = 'poe.ninja' | 'trade' | 'none';
@@ -87,10 +97,35 @@ export interface PriceEstimate {
   note: string;
   comparables?: ComparableListing[];
   tradeUrl?: string;
+  /** poe.ninja 7-day change in percent, when known. */
+  change7d?: number;
+  /** Second opinion from poeprices.info (rares only). */
+  poeprices?: { min: number; max: number; currency: string; chaos: number; confidence: number } | null;
+}
+
+export type AdviceAction = 'sell' | 'keep' | 'craft' | 'recipe' | 'vendor' | 'check';
+
+export interface Advice {
+  action: AdviceAction;
+  label: string;
+  reason: string;
+}
+
+export interface PricePoint { t: string; chaos: number }
+
+export interface SessionSummary {
+  startedAt: string;
+  itemCount: number;
+  totalChaos: number;
+  chaosPerHour: number;
+  best: { name: string; chaos: number } | null;
 }
 
 export interface PricedItem {
   item: PoeItem;
   price: PriceEstimate;
   firstSeen: string;
+  advice?: Advice;
+  /** Our own price snapshots for this kind of item (same name/base), oldest first. */
+  history?: PricePoint[];
 }

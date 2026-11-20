@@ -36,6 +36,8 @@ export interface NinjaRow {
   divineValue?: number;
   listingCount?: number;
   count?: number;
+  /** 7-day change in percent (from poe.ninja's sparkline). */
+  change7d?: number;
   category: string;
 }
 
@@ -120,6 +122,7 @@ export function parseOverview(category: string, json: any): NinjaRow[] {
         divineValue: l.divineValue,
         listingCount: l.listingCount ?? l.volumePrimaryValue,
         count: l.count,
+        change7d: l.sparkLine?.totalChange ?? l.sparkline?.totalChange ?? l.lowConfidenceSparkLine?.totalChange,
         category,
       };
     })

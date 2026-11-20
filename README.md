@@ -7,6 +7,17 @@ Desktopowa aplikacja (Windows/macOS/Linux), która obserwuje publiczną zakładk
 
 Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym uruchomieniu). Liga `auto` = bieżąca liga challenge, więc nowa liga nie wymaga zmian w kodzie.
 
+## Dodatkowe funkcje
+
+- **Historia i trend ceny** – zmiana 7-dniowa z poe.ninja oraz własna historia wycen, wykres w szczegółach przedmiotu.
+- **Notka cenowa** `~b/o 50 chaos` / `~b/o 1.5 divine` – jeden klik kopiuje ją do schowka.
+- **Wskazówki**: sprzedaj / zachowaj / do craftu / vendor recipe (6-link, 6 gniazd, R-G-B, GCP, Chaos/Regal recipe) / sprzedaj u NPC.
+- **Discord** – webhook z powiadomieniem o drogich dropach (przycisk testu w ustawieniach).
+- **Sesja** – wartość w czasie, chaos na godzinę, najlepszy drop; „Nowa sesja” zeruje licznik.
+- **poeprices.info** – opcjonalna druga opinia dla rare.
+- **Tiery modów** (T1, T2…) na podstawie danych z trade.
+- **Eksport CSV** gotowy do Excela (średniki, przecinek dziesiętny).
+
 ## Uruchomienie
 
 Wymagany Node.js 22 LTS lub nowszy.
