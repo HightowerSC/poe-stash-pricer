@@ -1,5 +1,8 @@
-## Co nowego w 0.11.0
+## Co nowego w 0.14.1
 
-- Zmiana skrótów klawiszowych: przycisk „⌨ Skróty” na górnym pasku. Kliknij „Zmień” i naciśnij nową kombinację – działa od razu, bez restartu. Program pilnuje konfliktów, ostrzega przed polskimi literami (Ctrl+Alt+S = ś) i ma „Przywróć wszystkie domyślne”.
-- Przycisk aktualizacji: numer wersji na górnym pasku. Sprawdzanie, lista zmian, pobieranie z paskiem postępu, „Zainstaluj i uruchom ponownie”.
-- Zrozumiałe komunikaty, gdy nie ma internetu albo Windows (Inteligentna kontrola aplikacji) zablokuje instalator – z przyciskiem do ręcznego pobrania.
+- Skróty klawiszowe: po kliknięciu „Zmień” można teraz także wybrać kombinację z listy (zaznacz Ctrl / Alt / Shift i wybierz klawisz, potem „Zapisz”). Działa nawet wtedy, gdy system albo inny program przechwytuje naciśnięte klawisze.
+- Do skrótów i aktualizacji wejdziesz też z „⚙ Ustawienia” (przycisk na górze ekranu ustawień).
+
+## 0.14.0
+
+- Nowy wygląd: menu po lewej, Ustawienia, Skróty i wersja programu na dole menu; całe okno przewija się kółkiem myszy.

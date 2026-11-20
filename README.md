@@ -7,6 +7,10 @@ Aplikacja dla Windows i Linux (jeden program, instalator jednym kliknięciem), k
 
 Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym uruchomieniu). Liga `auto` = bieżąca liga challenge, więc nowa liga nie wymaga zmian w kodzie.
 
+## Wygląd (od 0.14.0)
+
+Po lewej jest menu z widokami w trzech grupach: **Przedmioty** (Lista, Zakładki, Kategorie, Sprawdź Ctrl+C), **Postać i liga** (Postać, Challenge) i **Zarabianie** (Handel, Farma). Na dole menu: ⚙ Ustawienia, Skróty i wersja programu. Na górze strony jest nazwa widoku z jednym zdaniem wyjaśnienia, przyciski Start / Przelicz / CSV i pasek stanu. Całe okno przewija się kółkiem myszy; w wąskim oknie menu przechodzi na górę.
+
 ## Dodatkowe funkcje
 
 - **Historia i trend ceny** – zmiana 7-dniowa z poe.ninja oraz własna historia wycen, wykres w szczegółach przedmiotu.
@@ -38,10 +42,10 @@ Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym
 
 ## Aktualizacje i skróty klawiszowe
 
-- **Aktualizacje:** przycisk z numerem wersji na górnym pasku (np. `v0.11.0`) otwiera ekran aktualizacji: **Sprawdź aktualizacje**, lista zmian nowej wersji, pobieranie z paskiem postępu i **Zainstaluj i uruchom ponownie**. Gdy jest nowa wersja, przycisk świeci się na złoto. Program sprawdza sam co kilka godzin; automatyczne pobieranie można wyłączyć. Bez internetu nic nie wyskakuje – na ekranie aktualizacji jest zrozumiały komunikat.
+- **Aktualizacje:** przycisk z numerem wersji w lewym menu, na dole (np. `v0.11.0`) otwiera ekran aktualizacji: **Sprawdź aktualizacje**, lista zmian nowej wersji, pobieranie z paskiem postępu i **Zainstaluj i uruchom ponownie**. Gdy jest nowa wersja, przycisk świeci się na złoto. Program sprawdza sam co kilka godzin; automatyczne pobieranie można wyłączyć. Bez internetu nic nie wyskakuje – na ekranie aktualizacji jest zrozumiały komunikat.
 - **Windows i Inteligentna kontrola aplikacji (Smart App Control):** instalator nie ma płatnego podpisu, więc Windows może go zablokować. Program to zauważy po ponownym uruchomieniu i podpowie, co zrobić – najprościej pobrać instalator ręcznie przyciskiem **Pobierz instalator ręcznie**. Ustawienia zostają.
 - **Linux:** aktualizuje się sam plik `.AppImage` – trzymaj go w folderze, do którego możesz pisać (np. folder domowy).
-- **Skróty klawiszowe:** przycisk **⌨ Skróty** na górnym pasku (albo zasobnik → „Skróty klawiszowe i aktualizacje…”). Kliknij **Zmień** i naciśnij nową kombinację. Program nie pozwoli dać jednej kombinacji dwóm akcjom, ostrzeże przed Ctrl+Alt+litera, która na polskiej klawiaturze jest polską literą (ą, ś…), i powie, gdy kombinację zajął inny program. **Przywróć wszystkie domyślne** cofa zmiany. Ctrl+C to skrót samej gry – nie da się go zmienić, można tylko wyłączyć automatyczną wycenę.
+- **Skróty klawiszowe:** przycisk **⌨ Skróty** w lewym menu, na dole (albo zasobnik → „Skróty klawiszowe i aktualizacje…”). Kliknij **Zmień** i naciśnij nową kombinację. Program nie pozwoli dać jednej kombinacji dwóm akcjom, ostrzeże przed Ctrl+Alt+litera, która na polskiej klawiaturze jest polską literą (ą, ś…), i powie, gdy kombinację zajął inny program. **Przywróć wszystkie domyślne** cofa zmiany. Ctrl+C to skrót samej gry – nie da się go zmienić, można tylko wyłączyć automatyczną wycenę.
 
 To jedna aplikacja (to samo na obu systemach): okno z wyceną, ikona w zasobniku obok zegara i overlay w grze. Ustawienia i historia są zapisywane w folderze `.poe-stash-pricer` w katalogu domowym.
 
