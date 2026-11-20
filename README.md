@@ -13,6 +13,7 @@ Liga, konto, platforma i zakładka to ustawienia profilu (kreator przy pierwszym
 - **Notka cenowa** `~b/o 50 chaos` / `~b/o 1.5 divine` – jeden klik kopiuje ją do schowka.
 - **Wskazówki**: sprzedaj / zachowaj / do craftu / vendor recipe (6-link, 6 gniazd, R-G-B, GCP, Chaos/Regal recipe) / sprzedaj u NPC.
 - **Discord** – webhook z powiadomieniem o drogich dropach (przycisk testu w ustawieniach).
+- **Powiadomienia** (0.9.0, ⚙ Ustawienia → Powiadomienia albo ikona w zasobniku) – trzy tryby: *Wyłączone* (nic: ani system, ani Discord, ani pilnowanie ulepszeń), *Tylko wartościowe* (próg w chaos lub divine) i *Wszystkie*. Zmiana działa od razu, bez restartu skanowania.
 - **Sesja** – wartość w czasie, chaos na godzinę, najlepszy drop; „Nowa sesja” zeruje licznik.
 - **poeprices.info** – opcjonalna druga opinia dla rare.
 - **Tiery modów** (T1, T2…) na podstawie danych z trade.

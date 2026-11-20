@@ -16,6 +16,8 @@ const SERVER = `http://127.0.0.1:${PORT}`;
 const ICON = path.join(__dirname, 'icon.png');
 
 if (process.platform === 'linux') app.commandLine.appendSwitch('enable-transparent-visuals');
+// Windows shows system notifications only for an app with an id (same as appId in package.json).
+if (process.platform === 'win32') app.setAppUserModelId('com.hightowersc.poestashpricer');
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -26,7 +28,7 @@ if (!app.requestSingleInstanceLock()) {
 let main = null;
 let overlay = null;
 let tray = null;
-const state = { overlayOn: false, calibrating: false, tabIndex: 0, items: [], minValue: 0, grids: {}, clipWatch: true, popup: null };
+const state = { overlayOn: false, calibrating: false, tabIndex: 0, items: [], minValue: 0, grids: {}, clipWatch: true, popup: null, notifyMode: null };
 const CONFIG = () => path.join(app.getPath('userData'), 'overlay.json');
 
 // ---------- server ----------
@@ -265,8 +267,22 @@ async function poll() {
     state.items = Array.isArray(items) ? items : [];
     const profile = (settings.profiles || []).find((p) => p.id === settings.activeProfileId);
     state.minValue = profile ? Number(profile.minValueChaos) || 0 : 0;
+    state.notifyMode = profile ? profile.notifyMode || 'valuable' : null;
     pushOverlay();
   } catch { /* server still starting */ }
+}
+
+/** Tray shortcut for the same setting as in ⚙ Ustawienia → Powiadomienia (saved in the active profile). */
+async function setNotifyMode(mode) {
+  try {
+    const settings = await fetch(`${SERVER}/api/settings`).then((r) => r.json());
+    const profile = (settings.profiles || []).find((p) => p.id === settings.activeProfileId);
+    if (!profile) return;
+    profile.notifyMode = mode;
+    await fetch(`${SERVER}/api/settings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
+    state.notifyMode = mode;
+    updateTray();
+  } catch { /* server not ready */ }
 }
 
 function toggleOverlay() { state.overlayOn = !state.overlayOn; state.calibrating = false; saveConfig(); pushOverlay(); }
@@ -301,6 +317,16 @@ function updateTray() {
     { label: 'Kalibruj siatkę skrzynki (Ctrl+Alt+K)', click: toggleCalibration },
     { label: 'Następna zakładka (Ctrl+Alt+→)', click: () => switchTab(1), enabled: t.length > 1 },
     ...t.map((x, i) => ({ label: `Zakładka: ${x.tab}`, type: 'radio', checked: i === state.tabIndex, click: () => { state.tabIndex = i; saveConfig(); pushOverlay(); } })),
+    { type: 'separator' },
+    {
+      label: 'Powiadomienia',
+      enabled: state.notifyMode !== null,
+      submenu: [
+        { label: 'Wyłączone', type: 'radio', checked: state.notifyMode === 'off', click: () => void setNotifyMode('off') },
+        { label: 'Tylko wartościowe przedmioty', type: 'radio', checked: state.notifyMode === 'valuable', click: () => void setNotifyMode('valuable') },
+        { label: 'Wszystkie', type: 'radio', checked: state.notifyMode === 'all', click: () => void setNotifyMode('all') },
+      ],
+    },
     { type: 'separator' },
     { label: 'Sprawdź aktualizacje', click: () => checkUpdates(true) },
     { label: 'Zamknij', click: () => app.quit() },

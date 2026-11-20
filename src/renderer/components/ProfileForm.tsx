@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { League, Profile } from '../../shared/types';
 import { isDiscordWebhook, newProfile, validateProfile } from '../../core/config';
 import { PoesessidHelp, POESESSID_NOTE } from './PoesessidHelp';
+import { NotifySettings } from './NotifySettings';
 import type { LanInfo } from '../../shared/api';
 
 interface Props {
@@ -154,10 +155,6 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
       </label>
       <div className="row">
         <label>
-          Powiadom od (chaos)
-          <input type="number" min={0} value={p.notifyMinChaos} onChange={(e) => set('notifyMinChaos', Number(e.target.value))} />
-        </label>
-        <label>
           Minimalna wartość (chaos)
           <input type="number" min={0} value={p.minValueChaos} onChange={(e) => set('minValueChaos', Number(e.target.value))} />
         </label>
@@ -177,13 +174,14 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
           </select>
         </label>
       </div>
+      <NotifySettings value={p} onChange={(patch) => setP({ ...p, ...patch })} />
       <label>
         Webhook Discord (opcjonalnie)
         <div className="inline">
           <input placeholder="https://discord.com/api/webhooks/…" value={p.discordWebhook} onChange={(e) => set('discordWebhook', e.target.value)} />
           <button type="button" className="btn ghost" disabled={!isDiscordWebhook(p.discordWebhook)} onClick={testDiscord}>{discordState || 'Test'}</button>
         </div>
-        <span className="hint">Powiadomienia o drogich dropach na Twój kanał. Discord → Ustawienia kanału → Integracje → Webhooki.</span>
+        <span className="hint">Powiadomienia (według ustawienia wyżej) także na Twój kanał. Discord → Ustawienia kanału → Integracje → Webhooki.</span>
       </label>
       <label className="check wide">
         <input type="checkbox" checked={p.usePoeprices} onChange={(e) => set('usePoeprices', e.target.checked)} />

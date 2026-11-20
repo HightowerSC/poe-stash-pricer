@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { League, Profile } from '../../shared/types';
 import { newProfile, validateProfile } from '../../core/config';
 import { PoesessidHelp, POESESSID_NOTE } from './PoesessidHelp';
+import { NotifySettings } from './NotifySettings';
 
 interface Props {
   /** Saves the profile and starts watching. */
@@ -125,10 +126,7 @@ export function Wizard({ onDone }: Props) {
             Oznaczaj jako tanie przedmioty warte mniej niż (chaos)
             <input type="number" min={0} value={p.minValueChaos} onChange={(e) => set('minValueChaos', Math.max(0, Number(e.target.value) || 0))} />
           </label>
-          <label>
-            Powiadamiaj o przedmiotach wartych co najmniej (chaos)
-            <input type="number" min={0} value={p.notifyMinChaos} onChange={(e) => set('notifyMinChaos', Math.max(0, Number(e.target.value) || 0))} />
-          </label>
+          <NotifySettings value={p} onChange={(patch) => setP({ ...p, ...patch })} />
           <p className="hint">Po kliknięciu „Zapisz i uruchom” program pobierze ceny i sprawdzi Twoją skrzynię. Resztę opcji zmienisz w ⚙ Ustawieniach.</p>
         </div>
       )}

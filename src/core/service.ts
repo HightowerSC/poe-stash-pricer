@@ -16,6 +16,7 @@ import { demoItems, demoValue } from './demo';
 import { advise } from './extras/advice';
 import { emptyHistory, recordPrice, recordValue, sessionSummary, type HistoryStore } from './extras/history';
 import { discordPayload, sendDiscord } from './extras/discord';
+import { notifyThresholdChaos, shouldNotifyItem, shouldNotifyUpgrade } from './extras/notifyPolicy';
 import { toCsv } from './extras/csv';
 import { craftReport, demoCraftPricer } from './craft/advisor';
 import { modWeight } from './pricing/tradeQuery';
@@ -491,9 +492,11 @@ export class PricerService {
   }
 
   private announceUpgrade(f: UpgradeWatchState['finds'][number], character: string) {
+    let profile: Profile | null = null;
+    try { profile = this.activeProfile(); } catch { /* no profile */ }
+    if (!shouldNotifyUpgrade(profile)) return;
     this.emit({ type: 'notify', payload: { title: `Ulepszenie: ${f.slot} za ${f.chaos}c`, body: `${character}: ${f.name} (${f.wants.join(', ')})` } });
-    let webhook = '';
-    try { webhook = this.activeProfile().discordWebhook; } catch { /* no profile */ }
+    const webhook = profile?.discordWebhook ?? '';
     if (!webhook) return;
     const payload = { username: 'PoE Stash Pricer', embeds: [{ title: `Ulepszenie dla ${character}: ${f.slot} za ${f.chaos}c`.slice(0, 250), url: f.tradeUrl, description: `${f.name}\n${f.wants.join(', ')}`.slice(0, 1000), color: 0xc8a65a }] };
     sendDiscord(fetch, webhook, payload).catch((e) => this.emit({ type: 'status', payload: { text: `Discord: ${msg(e)}`, error: true } }));
@@ -784,14 +787,17 @@ export class PricerService {
 
   private enrich(newItems: PricedItem[], profile: Profile): PricedItem[] {
     return newItems.map((p) => {
-      const withAdvice = { ...p, advice: advise(p.item, p.price, { sellMinChaos: Math.max(1, profile.notifyMinChaos / 2) }) };
+      const withAdvice = { ...p, advice: advise(p.item, p.price, { sellMinChaos: Math.max(1, notifyThresholdChaos(profile, this.divineRate) / 2) }) };
       return { ...withAdvice, history: [...recordPrice(this.history, withAdvice)] };
     });
   }
 
-  private notify(items: PricedItem[], profile: Profile) {
+  private notify(items: PricedItem[], started: Profile) {
+    // Read the settings again, so turning notifications off works at once, without restarting the scan.
+    let profile = started;
+    try { const now = this.activeProfile(); if (now.id === started.id) profile = now; } catch { /* keep the one we started with */ }
     for (const it of items) {
-      if ((it.price.chaos ?? 0) < profile.notifyMinChaos) continue;
+      if (!shouldNotifyItem(profile, it.price.chaos, this.divineRate)) continue;
       this.emit({ type: 'notify', payload: { title: it.item.name || it.item.typeLine, body: `~${Math.round(it.price.chaos ?? 0)}c · ${it.advice?.label ?? ''}` } });
       if (profile.discordWebhook) {
         sendDiscord(fetch, profile.discordWebhook, discordPayload(it, this.league, this.divineRate)).catch((e) =>
