@@ -10,6 +10,7 @@ import { exec } from 'node:child_process';
 import { PricerService, type ServiceEvent } from '../core/service';
 import { isDiscordWebhook } from '../core/config';
 import { LanPreview, publicSettings } from './lan';
+import { IconCache } from './icons';
 
 const PORT = Number(process.env.PORT ?? 5317);
 const HOST = '127.0.0.1';
@@ -18,6 +19,7 @@ const DATA_DIR = process.env.POE_PRICER_DATA ?? path.join(os.homedir(), '.poe-st
 
 const service = new PricerService(DATA_DIR);
 const clients = new Set<http.ServerResponse>();
+const icons = new IconCache(DATA_DIR);
 
 service.on((e: ServiceEvent) => {
   if (e.type === 'status') console.log(`[${new Date().toLocaleTimeString()}] ${e.payload.error ? 'BŁĄD: ' : ''}${e.payload.text}`);
@@ -81,6 +83,13 @@ function sameOrigin(req: http.IncomingMessage): boolean {
 
 async function handleApi(req: http.IncomingMessage, res: http.ServerResponse, url: string): Promise<void> {
   try {
+    if (req.method === 'GET' && url === '/api/icon') {
+      const u = new URL(req.url ?? '', 'http://localhost').searchParams.get('u') ?? '';
+      const icon = await icons.get(u);
+      res.writeHead(200, { 'Content-Type': icon.type, 'Cache-Control': 'max-age=604800' });
+      res.end(icon.body);
+      return;
+    }
     const route = `${req.method} ${url}`;
     switch (route) {
       case 'GET /api/health': return json(res, 200, { ok: true, dataDir: DATA_DIR });

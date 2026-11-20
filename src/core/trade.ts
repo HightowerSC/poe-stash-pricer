@@ -24,7 +24,7 @@ export class TradeClient {
    * One stash tab from the legacy stash API (needs POESESSID; GGG may answer 403 for it).
    * With withTabs=true the answer also lists all tabs: { numTabs, tabs: [{ n, i, type }], items }.
    */
-  async stashTab(league: string, account: string, realm: Realm, index: number, withTabs: boolean): Promise<{ numTabs?: number; tabs?: { n: string; i: number; type?: string; hidden?: boolean }[]; items: any[] }> {
+  async stashTab(league: string, account: string, realm: Realm, index: number, withTabs: boolean): Promise<{ numTabs?: number; tabs?: { n: string; i: number; type?: string; hidden?: boolean; colour?: { r: number; g: number; b: number } }[]; items: any[] }> {
     if (!this.sessionId) throw new Error('Brak POESESSID w ustawieniach profilu.');
     const url = `${SITE}/character-window/get-stash-items?accountName=${encodeURIComponent(account)}&realm=${realm}`
       + `&league=${encodeURIComponent(league)}&tabs=${withTabs ? 1 : 0}&tabIndex=${index}`;

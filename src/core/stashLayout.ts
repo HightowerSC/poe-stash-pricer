@@ -8,6 +8,24 @@ export interface TabLayout {
   grid: 12 | 24 | null;
   items: PricedItem[];
   totalChaos: number;
+  /** From the stash API: tab type, order in game and colour of the tab. */
+  type?: string;
+  index?: number;
+  color?: string;
+}
+
+/** Tab types that are a plain grid of cells; everything else (currency, fragment, essence, divination…) has its own layout. */
+const GRID_TYPES: Record<string, 12 | 24> = { NormalStash: 12, PremiumStash: 12, QuadStash: 24 };
+
+/** Polish name of a tab type for the legend under the picture. */
+export function tabTypeLabel(type: string | undefined, grid: 12 | 24 | null): string {
+  const names: Record<string, string> = {
+    NormalStash: 'zwykła', PremiumStash: 'premium', QuadStash: 'quad (24×24)', CurrencyStash: 'waluty', FragmentStash: 'fragmentów',
+    EssenceStash: 'esencji', DivinationCardStash: 'kart', MapStash: 'map', UniqueStash: 'unikatów', DelveStash: 'Delve',
+    BlightStash: 'Blight', MetamorphStash: 'Metamorph', DeliriumStash: 'Delirium', GemStash: 'gemów', FlaskStash: 'flasek',
+  };
+  if (type && names[type]) return `Zakładka ${names[type]}`;
+  return grid === 24 ? 'Zakładka quad (24×24)' : grid === 12 ? 'Zakładka 12×12' : 'Zakładka specjalna';
 }
 
 export function tabLayouts(items: PricedItem[]): TabLayout[] {
@@ -17,13 +35,24 @@ export function tabLayouts(items: PricedItem[]): TabLayout[] {
     byTab.set(p.location.tab, [...(byTab.get(p.location.tab) ?? []), p]);
   }
   return [...byTab.entries()]
-    .map(([tab, list]) => ({
-      tab,
-      grid: gridSize(list.map((p) => p.location!)),
-      items: list,
-      totalChaos: Math.round(list.reduce((s, p) => s + (p.price.chaos ?? 0), 0)),
-    }))
-    .sort((a, b) => a.tab.localeCompare(b.tab, 'pl'));
+    .map(([tab, list]): TabLayout => {
+      const info = list.find((p) => p.location!.tabType)?.location;
+      const known = info?.tabType ? GRID_TYPES[info.tabType] : undefined;
+      const locs = list.map((p) => p.location!);
+      // A known grid type wins, but only if the items really fit (otherwise fall back to tiles).
+      const grid = info?.tabType ? (known && gridSize(locs) !== null && fits(locs, known) ? known : null) : gridSize(locs);
+      return {
+        tab,
+        grid,
+        items: list,
+        totalChaos: Math.round(list.reduce((s, p) => s + (p.price.chaos ?? 0), 0)),
+        type: info?.tabType,
+        index: info?.tabIndex,
+        color: info?.tabColor,
+      };
+    })
+    // Same order as in game when the stash API told us; alphabetical otherwise.
+    .sort((a, b) => (a.index ?? 1e9) - (b.index ?? 1e9) || a.tab.localeCompare(b.tab, 'pl'));
 }
 
 /**
@@ -47,6 +76,10 @@ export function gridSize(locs: ItemLocation[]): 12 | 24 | null {
     }
   }
   return size;
+}
+
+function fits(locs: ItemLocation[], size: number): boolean {
+  return locs.every((l) => l.x >= 0 && l.y >= 0 && l.x + l.w <= size && l.y + l.h <= size);
 }
 
 /** "Zakładka „Inbox”, kolumna 3, rząd 5" – 1-based, the way a player counts cells. */

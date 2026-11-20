@@ -106,7 +106,8 @@ describe('StashWatcher', () => {
     expect(scan.ids).toEqual(['x', 'y']);
     expect(scan.tabs).toEqual(['Prywatna', 'Druga']);
     const [x] = await scan.load(['x']);
-    expect(x.location).toEqual({ tab: 'Prywatna', x: 3, y: 4, w: 1, h: 1 });
+    expect(x.location).toEqual({ tab: 'Prywatna', x: 3, y: 4, w: 1, h: 1, tabType: 'NormalStash', tabIndex: 0 });
+    expect(scan.locations?.get('x')).toEqual(x.location);
   });
 
 });

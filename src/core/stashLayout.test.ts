@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { gridSize, positionLabel, tabLayouts } from './stashLayout';
+import { gridSize, positionLabel, tabLayouts, tabTypeLabel } from './stashLayout';
+import { hexColour } from './stashSource';
 import { listingLocation, normalizeItem } from './normalize';
 import type { PricedItem } from '../shared/types';
 
@@ -31,5 +32,39 @@ describe('stash layout', () => {
 
   it('describes the position in player terms', () => {
     expect(positionLabel({ tab: 'Inbox', x: 2, y: 4, w: 1, h: 1 })).toBe('Zakładka „Inbox”, kolumna 3, rząd 5');
+  });
+});
+
+describe('stash picture', () => {
+  const item = (id: string, x: number, y: number, extra: Partial<import('../shared/types').ItemLocation> = {}, w = 1, h = 1): PricedItem => ({
+    item: { id, name: '', typeLine: id, baseType: id, icon: '', ilvl: 1, frameType: 5 },
+    price: { itemId: id, source: 'poe.ninja', chaos: 1, low: 1, high: 1, confidence: 'high', sampleSize: 1, note: '' },
+    firstSeen: '', location: { tab: extra.tab ?? 'T', x, y, w, h, ...extra },
+  });
+
+  it('uses the tab type from the stash API and keeps the game order', () => {
+    const tabs = tabLayouts([
+      item('a', 0, 0, { tab: 'Waluta', tabType: 'CurrencyStash', tabIndex: 0, tabColor: '#ff0000' }),
+      item('b', 1, 0, { tab: 'Waluta', tabType: 'CurrencyStash', tabIndex: 0 }),
+      item('c', 0, 0, { tab: 'Quad', tabType: 'QuadStash', tabIndex: 2 }),
+      item('d', 3, 3, { tab: 'Zwykła', tabType: 'PremiumStash', tabIndex: 1 }),
+    ]);
+    expect(tabs.map((t) => [t.tab, t.grid, t.type, t.color])).toEqual([
+      ['Waluta', null, 'CurrencyStash', '#ff0000'],
+      ['Zwykła', 12, 'PremiumStash', undefined],
+      ['Quad', 24, 'QuadStash', undefined],
+    ]);
+    expect(tabTypeLabel('CurrencyStash', null)).toBe('Zakładka waluty');
+    expect(tabTypeLabel(undefined, 24)).toBe('Zakładka quad (24×24)');
+  });
+
+  it('falls back to tiles when items do not fit the grid of the tab type', () => {
+    const [t] = tabLayouts([item('a', 13, 0, { tabType: 'PremiumStash', tabIndex: 0 })]);
+    expect(t.grid).toBeNull();
+  });
+
+  it('turns the GGG tab colour into hex', () => {
+    expect(hexColour({ r: 255, g: 16, b: 0 })).toBe('#ff1000');
+    expect(hexColour(undefined)).toBeUndefined();
   });
 });

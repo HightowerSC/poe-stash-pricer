@@ -161,6 +161,10 @@ export interface ItemLocation {
   y: number;
   w: number;
   h: number;
+  /** Stash API only: tab type (NormalStash, PremiumStash, QuadStash, CurrencyStash…), position of the tab and its colour (#rrggbb). */
+  tabType?: string;
+  tabIndex?: number;
+  tabColor?: string;
 }
 
 export interface PricedItem {
