@@ -24,25 +24,22 @@ Aplikacja działa w przeglądarce. Mały lokalny serwer (Node.js) pobiera ceny z
 
 Wymagane: [Node.js LTS](https://nodejs.org/) (20 lub nowszy) i [Git](https://git-scm.com/).
 
-**Windows** (PowerShell):
+Ten sam kod i te same komendy na każdym systemie. Wklej w terminal (Windows: PowerShell, Linux/macOS: terminal):
 
-```powershell
+```
 git clone https://github.com/HightowerSC/poe-stash-pricer
 cd poe-stash-pricer
-.\start.bat
+npm install
+npm start
 ```
 
-**Linux** (terminal):
+`npm start` buduje aplikację, uruchamia serwer i otwiera przeglądarkę. Następnym razem wystarczy `cd poe-stash-pricer` i `npm start`.
 
-```bash
-git clone https://github.com/HightowerSC/poe-stash-pricer
-cd poe-stash-pricer
-./start.sh
-```
+Opcjonalnie: `start.bat` (Windows, dwuklik) i `start.sh` (Linux) to tylko skróty, które robią to samo co dwie ostatnie komendy.
 
-Przy pierwszym uruchomieniu skrypt instaluje biblioteki (ok. minuty), potem buduje aplikację i otwiera przeglądarkę. Kolejne razy: kliknij dwukrotnie `start.bat` (Windows) albo uruchom `./start.sh` (Linux). Aby wyłączyć – zamknij okno terminala.
+Aby wyłączyć – zamknij okno terminala (albo Ctrl+C).
 
-Aktualizacja do nowej wersji: `git pull`, potem znowu `start.bat` / `./start.sh`.
+Aktualizacja do nowej wersji: `git pull`, `npm install`, `npm start`.
 
 Ustawienia i historia są zapisywane w folderze `.poe-stash-pricer` w katalogu domowym.
 
