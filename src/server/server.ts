@@ -101,6 +101,10 @@ const server = http.createServer(async (req, res) => {
         const { id } = await readBody(req);
         return json(res, 200, await service.craftAdvice(String(id ?? '')));
       }
+      case 'POST /api/reprice': {
+        const { ids } = await readBody(req);
+        return json(res, 200, await service.reprice(Array.isArray(ids) ? ids.map(String) : undefined));
+      }
       case 'POST /api/stop': service.stop(); return json(res, 200, { ok: true });
       case 'POST /api/discord/test': {
         const { webhook } = await readBody(req);

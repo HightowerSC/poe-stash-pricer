@@ -108,6 +108,15 @@ export function App() {
     }
   }
 
+  async function repriceAll() {
+    try {
+      const r = await window.pricer.reprice();
+      setStatus({ text: `Przeliczam ${r.queued} przedmiotów…` });
+    } catch (e) {
+      setStatus({ text: e instanceof Error ? e.message : String(e), error: true });
+    }
+  }
+
   async function exportCsv() {
     const file = await window.pricer.exportCsv();
     if (file) {
@@ -155,6 +164,7 @@ export function App() {
               <button className="btn ghost" onClick={() => start(true)} disabled={busy}>Demo</button>
             </>
           )}
+          <button className="btn ghost" onClick={repriceAll} disabled={items.length === 0} title="Wycenia ponownie wszystkie przedmioty według aktualnego rynku">↻ Przelicz</button>
           <button className="btn ghost" onClick={exportCsv} disabled={items.length === 0}>⭳ CSV</button>
           <button className="btn ghost" onClick={() => setEditing(true)} aria-label="Ustawienia">⚙ Ustawienia</button>
         </div>

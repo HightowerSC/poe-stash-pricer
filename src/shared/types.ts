@@ -28,6 +28,15 @@ export interface Profile {
   discordWebhook: string;
   /** Ask poeprices.info for a second opinion on rares. */
   usePoeprices: boolean;
+  /**
+   * Where items come from: 'public' = public stash tabs found through the trade site (no login),
+   * 'session' = all stash tabs (also private) through the legacy stash API with the user's POESESSID.
+   */
+  stashSource: 'public' | 'session';
+  /** POESESSID cookie, kept only in the local settings file and sent only to pathofexile.com. */
+  poesessid: string;
+  /** Re-price items older than this many hours automatically. 0 = off. */
+  repriceHours: number;
 }
 
 export interface AppSettings {
@@ -149,6 +158,8 @@ export interface PricedItem {
   /** False once the item no longer shows up in the public tabs (sold, moved out, tab made private). */
   present?: boolean;
   advice?: Advice;
+  /** When the price was last computed (first pricing or a re-price). */
+  pricedAt?: string;
   /** Our own price snapshots for this kind of item (same name/base), oldest first. */
   history?: PricePoint[];
 }

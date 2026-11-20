@@ -46,6 +46,11 @@ export function browserMockApi(): PricerApi {
       return { league: 'Covens', divineRate: 180 };
     },
     async stop() {},
+    async reprice(ids) {
+      items = items.map((p) => (!ids || ids.includes(p.item.id) ? { ...p, pricedAt: new Date().toISOString() } : p));
+      itemListeners.forEach((l) => l(items));
+      return { queued: ids?.length ?? items.length };
+    },
     async craftAdvice(id) {
       const found = items.find((p) => p.item.id === id);
       if (!found) throw new Error('Nie znaleziono przedmiotu.');

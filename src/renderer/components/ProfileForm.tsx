@@ -76,9 +76,30 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
         )}
       </div>
       <label>
-        Obserwowana zakładka (publiczna)
-        <input placeholder="np. Inbox – puste = wszystkie publiczne" value={p.watchedTab} onChange={(e) => set('watchedTab', e.target.value)} />
-        <span className="hint">W grze ustaw zakładkę jako „Public” bez ceny. Przedmioty pojawią się tu po ok. 5 minutach.</span>
+        Skąd brać przedmioty
+        <select value={p.stashSource} onChange={(e) => set('stashSource', e.target.value as Profile['stashSource'])}>
+          <option value="public">Publiczne zakładki (przez trade, bez logowania)</option>
+          <option value="session">Wszystkie zakładki, także prywatne (POESESSID)</option>
+        </select>
+        <span className="hint">
+          {p.stashSource === 'public'
+            ? 'W grze ustaw zakładki jako „Public” bez ceny. Przedmioty pojawią się tu po ok. 5 minutach.'
+            : 'Czyta wszystkie zakładki od razu, bez ustawiania „Public”. GGG może zablokować ten sposób (błąd 403) – wtedy wróć do publicznych zakładek.'}
+        </span>
+      </label>
+      {p.stashSource === 'session' && (
+        <label>
+          POESESSID
+          <input type="password" autoComplete="off" placeholder="32 znaki z ciasteczek pathofexile.com" value={p.poesessid} onChange={(e) => set('poesessid', e.target.value.trim())} />
+          <span className="hint">
+            Zaloguj się na pathofexile.com → F12 → Application (Aplikacja) → Cookies → POESESSID → skopiuj wartość.
+            Zostaje tylko w pliku ustawień na tym komputerze i trafia wyłącznie do pathofexile.com. Nikomu go nie podawaj – daje dostęp do konta.
+          </span>
+        </label>
+      )}
+      <label>
+        Tylko te zakładki (opcjonalnie)
+        <input placeholder="puste = wszystkie; kilka po przecinku, np. Inbox, Sprzedaż" value={p.watchedTab} onChange={(e) => set('watchedTab', e.target.value)} />
       </label>
       <div className="row">
         <label>
@@ -92,6 +113,10 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
         <label>
           Sprawdzaj co (s)
           <input type="number" min={120} step={30} value={p.pollSeconds} onChange={(e) => set('pollSeconds', Number(e.target.value))} />
+        </label>
+        <label>
+          Przeliczaj ceny co (h)
+          <input type="number" min={0} step={1} value={p.repriceHours} onChange={(e) => set('repriceHours', Number(e.target.value))} title="0 = wyłączone" />
         </label>
         <label>
           Pokazuj ceny w

@@ -10,6 +10,7 @@ import { NinjaClient } from './ninja';
 import { TradeClient } from './trade';
 import { PricingEngine } from './engine';
 import { StashWatcher } from './watcher';
+import { PublicTabsSource, SessionTabsSource } from './stashSource';
 import { sampleItems } from './sampleItems';
 import { demoItems, demoValue } from './demo';
 import { advise } from './extras/advice';
@@ -30,6 +31,10 @@ const safe = (league: string) => league.replace(/[^\w-]/g, '_');
 
 export class PricerService {
   private watcher: StashWatcher | null = null;
+  private trade: TradeClient | null = null;
+  private profile: Profile | null = null;
+  private repriceTimer: ReturnType<typeof setInterval> | null = null;
+  private repricing = false;
   private engine: PricingEngine | null = null;
   private demo = false;
   private items: PricedItem[] = [];
@@ -117,6 +122,8 @@ export class PricerService {
   stop() {
     this.watcher?.stop();
     this.watcher = null;
+    if (this.repriceTimer) clearInterval(this.repriceTimer);
+    this.repriceTimer = null;
   }
 
   private starting = false;
@@ -167,7 +174,9 @@ export class PricerService {
       this.status(`Nie udało się pobrać listy lig (${msg(e)}) – używam ustawienia z profilu.`, true);
     }
     this.league = resolveLeague(profile.league, profile.hardcore, leagues);
-    const trade = new TradeClient(fetch, profile.accountName);
+    const trade = new TradeClient(fetch, profile.accountName, profile.stashSource === 'session' ? profile.poesessid.trim() : undefined);
+    this.trade = trade;
+    this.profile = profile;
     const engine = new PricingEngine(profile, this.league, this.ninja, trade);
     this.engine = engine;
     this.demo = false;
@@ -184,7 +193,8 @@ export class PricerService {
     } catch (e) {
       this.status(`Nie udało się pobrać modów z trade: ${msg(e)}. Rare będą wyceniane dopiero po ponownym starcie.`, true);
     }
-    this.status(`Krok 4/4: sprawdzam publiczne zakładki konta ${profile.accountName}… (wczytano ${count} cen)`);
+    const source = profile.stashSource === 'session' ? new SessionTabsSource(profile, this.league, trade) : new PublicTabsSource(profile, this.league, trade);
+    this.status(`Krok 4/4: sprawdzam ${source.label} konta ${profile.accountName}… (wczytano ${count} cen)`);
 
     const store = this.readJson<{ seen: string[]; items: PricedItem[] }>(`items-${safe(this.league)}.json`, { seen: [], items: [] });
     this.items = store.items;
@@ -192,7 +202,9 @@ export class PricerService {
     this.pushState();
 
     const self = this;
-    this.watcher = new StashWatcher(profile, this.league, trade, engine, {
+    // Only items we actually priced count as seen (older versions also stored skipped ones, which hid them for good).
+    const pricedIds = new Set(this.items.map((p) => p.item.id));
+    this.watcher = new StashWatcher(profile, this.league, source, engine, {
       onItems(newItems) {
         self.divineRate = engine.divineRate ?? self.divineRate;
         const enriched = self.enrich(newItems, profile);
@@ -203,9 +215,10 @@ export class PricerService {
         self.pushState();
         self.notify(enriched, profile);
       },
-      onPresent: (ids, total) => {
-        // Only trust absence when the search returned everything (it is capped at 100 results).
-        if (total > ids.length) return;
+      onEmpty: () => this.findOtherLeague(profile, leagues),
+      onPresent: (ids, complete) => {
+        // Only trust absence when the scan returned everything (the trade search is capped at 100 results).
+        if (!complete) return;
         const present = new Set(ids);
         let changed = false;
         self.items = self.items.map((p) => {
@@ -221,8 +234,9 @@ export class PricerService {
       },
       onStatus: (text) => this.emit({ type: 'status', payload: { text } }),
       onError: (text) => this.emit({ type: 'status', payload: { text, error: true } }),
-    }, store.seen);
+    }, store.seen.filter((id) => pricedIds.has(id)));
     this.watcher.start();
+    this.startAutoReprice(profile);
     return { league: this.league, divineRate: this.divineRate };
   }
 
@@ -240,6 +254,89 @@ export class PricerService {
     const report = await craftReport(found.item, current, { tradePrice: (it) => engine.tradePrice(it), chaosRate: (c) => engine.chaosRate(c), weight: modWeight });
     this.status('Doradca craftu: gotowe.');
     return report;
+  }
+
+  /** Nothing visible in this league: look for the account's items in other leagues (once per start). */
+  private async findOtherLeague(profile: Profile, leagues: League[]): Promise<string | null> {
+    if (profile.stashSource === 'session' || !this.trade) return null;
+    const candidates = [...new Set(['Standard', 'Hardcore', ...leagues.filter((l) => l.current).map((l) => l.id)])].filter((l) => l !== this.league);
+    const found: string[] = [];
+    for (const league of candidates.slice(0, 4)) {
+      try {
+        const r = await this.trade.searchAccountItems(league, profile.accountName, profile.realm);
+        if (r.total > 0) found.push(`${league} (${r.total})`);
+      } catch { /* ignore: only a hint */ }
+    }
+    return found.length
+      ? `Twoje publiczne przedmioty widać w innej lidze: ${found.join(', ')} – zmień ligę w profilu.`
+      : 'W innych ligach też nic nie widać – sprawdź nazwę konta z numerem i czy zakładka jest „Public”.';
+  }
+
+  /**
+   * Prices items again (all present items, or the given ids) with the current market.
+   * Runs in the background; progress goes to the status line.
+   */
+  async reprice(ids?: string[]): Promise<{ queued: number }> {
+    const engine = this.engine;
+    if (this.demo) {
+      this.items = this.items.map((p) => (!ids || ids.includes(p.item.id) ? { ...p, pricedAt: new Date().toISOString() } : p));
+      this.pushState();
+      this.status('Tryb demo – ceny przeliczone (bez połączenia z API).');
+      return { queued: ids?.length ?? this.items.length };
+    }
+    if (!engine || !this.profile) throw new Error('Najpierw kliknij Start – przeliczanie korzysta z cen z trade i poe.ninja.');
+    if (this.repricing) throw new Error('Przeliczanie już trwa.');
+    const targets = this.items.filter((p) => p.present !== false && (!ids || ids.includes(p.item.id)));
+    void this.repriceItems(targets, engine, this.profile);
+    return { queued: targets.length };
+  }
+
+  private async repriceItems(targets: PricedItem[], engine: PricingEngine, profile: Profile) {
+    this.repricing = true;
+    try {
+      await engine.refreshPrices();
+      let done = 0;
+      for (const p of targets) {
+        done++;
+        this.status(`Przeliczam ${done}/${targets.length}: ${p.item.name || p.item.typeLine}…`);
+        let price;
+        try {
+          price = await engine.price(p.item);
+        } catch (e) {
+          this.status(`Nie udało się przeliczyć ${p.item.name || p.item.typeLine}: ${msg(e)}`, true);
+          continue;
+        }
+        const [updated] = this.enrich([{ ...p, price, pricedAt: new Date().toISOString() }], profile);
+        this.items = this.items.map((x) => (x.item.id === p.item.id ? { ...updated, firstSeen: p.firstSeen, location: p.location, present: p.present } : x));
+        if (done % 5 === 0 || done === targets.length) {
+          recordValue(this.history, this.items);
+          this.writeJson(`items-${safe(this.league)}.json`, { seen: this.watcher?.seenIds ?? [], items: this.items });
+          this.writeJson(`history-${safe(this.league)}.json`, this.history);
+          this.pushState();
+        }
+      }
+      this.status(`${new Date().toLocaleTimeString()} · Przeliczono ${targets.length} przedmiotów.`);
+    } finally {
+      this.repricing = false;
+    }
+  }
+
+  /** Every 10 minutes re-price up to 10 items whose price is older than profile.repriceHours. */
+  private startAutoReprice(profile: Profile) {
+    if (this.repriceTimer) clearInterval(this.repriceTimer);
+    this.repriceTimer = null;
+    if (!profile.repriceHours) return;
+    this.repriceTimer = setInterval(() => {
+      const engine = this.engine;
+      if (!engine || this.repricing) return;
+      const limit = Date.now() - profile.repriceHours * 3_600_000;
+      const stale = this.items
+        .filter((p) => p.present !== false && Date.parse(p.pricedAt ?? p.firstSeen) < limit)
+        .sort((a, b) => (b.price.chaos ?? 0) - (a.price.chaos ?? 0))
+        .slice(0, 10);
+      if (stale.length) void this.repriceItems(stale, engine, profile);
+    }, 10 * 60_000);
+    this.repriceTimer.unref?.();
   }
 
   private summary(): SessionSummary {

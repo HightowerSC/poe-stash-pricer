@@ -18,6 +18,9 @@ export function newProfile(partial: Partial<Profile> = {}): Profile {
     pollSeconds: Math.max(MIN_POLL_SECONDS, partial.pollSeconds ?? 180),
     discordWebhook: partial.discordWebhook ?? '',
     usePoeprices: partial.usePoeprices ?? false,
+    stashSource: partial.stashSource === 'session' ? 'session' : 'public',
+    poesessid: partial.poesessid ?? '',
+    repriceHours: Math.max(0, partial.repriceHours ?? 0),
   };
 }
 
@@ -39,6 +42,10 @@ export function validateProfile(p: Profile): string[] {
   if (p.discordWebhook && !isDiscordWebhook(p.discordWebhook)) {
     errors.push('Webhook Discord musi zaczynać się od https://discord.com/api/webhooks/');
   }
+  if (p.stashSource === 'session' && !/^[0-9a-f]{32}$/i.test(p.poesessid.trim())) {
+    errors.push('POESESSID to 32 znaki (cyfry i litery a–f) – skopiuj go z ciasteczek pathofexile.com.');
+  }
+  if (p.repriceHours < 0) errors.push('Odświeżanie wycen nie może być ujemne.');
   if (p.minValueChaos < 0) errors.push('Minimalna wartość nie może być ujemna.');
   if (p.notifyMinChaos < 0) errors.push('Próg powiadomień nie może być ujemny.');
   return errors;
@@ -76,4 +83,9 @@ export function upgradeProfile(p: Partial<Profile>): Profile {
 export function isBelowMin(chaos: number | null, minValueChaos: number): boolean {
   if (minValueChaos <= 0) return false;
   return chaos == null || chaos < minValueChaos;
+}
+
+/** "Inbox, Sprzedaż" -> ['inbox', 'sprzedaż']. Empty = every tab. */
+export function tabFilter(watchedTab: string): string[] {
+  return watchedTab.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean);
 }

@@ -18,6 +18,8 @@ export interface PricerApi {
   stop(): Promise<void>;
   /** Doradca craftu: can a mod be added so the item sells for more? */
   craftAdvice(itemId: string): Promise<CraftReport>;
+  /** Prices items again with the current market (all present items, or the given ids). */
+  reprice(ids?: string[]): Promise<{ queued: number }>;
   getItems(): Promise<PricedItem[]>;
   getSession(): Promise<SessionState>;
   resetSession(): Promise<void>;

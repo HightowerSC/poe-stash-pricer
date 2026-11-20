@@ -1,30 +1,35 @@
-// Polls the trade site for items in the user's public tabs and prices the ones not seen before.
+// Polls the account's stash tabs and prices the items not seen before.
 
 import type { PoeItem, PriceEstimate, PricedItem, Profile } from '../shared/types';
-import { listingLocation, normalizeItem } from './normalize';
 import type { PricingEngine } from './engine';
-import type { TradeClient } from './trade';
+import type { StashSource } from './stashSource';
+import { tabFilter } from './config';
 
 export interface WatcherEvents {
   onItems(items: PricedItem[]): void;
   onStatus(text: string): void;
   onError(text: string): void;
-  /** Ids currently visible in the public tabs, and how many there are in total. */
-  onPresent?(ids: string[], total: number): void;
+  /** Ids currently in the scanned tabs; complete=false when the list was cut off (trade search: 100 max). */
+  onPresent?(ids: string[], complete: boolean): void;
+  /** Called when nothing is visible, to find out why (e.g. items are in another league). */
+  onEmpty?(): Promise<string | null>;
 }
 
-/** How many new items to fetch and price per check. */
+/** How many new items to price per check, so one check never floods the trade site. */
 const BATCH = 20;
 
 export class StashWatcher {
   private seen = new Set<string>();
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private emptyHint: string | null | undefined;
+  /** Items outside the chosen tabs: not fetched again during this run, but not remembered either. */
+  private skippedThisRun = new Set<string>();
 
   constructor(
     private readonly profile: Profile,
     private readonly league: string,
-    private readonly trade: TradeClient,
-    private readonly engine: PricingEngine,
+    private readonly source: StashSource,
+    private readonly engine: Pick<PricingEngine, 'refreshPrices' | 'price'>,
     private readonly events: WatcherEvents,
     seenIds: string[] = [],
   ) {
@@ -46,43 +51,29 @@ export class StashWatcher {
 
   async tick() {
     try {
-      this.events.onStatus('Sprawdzam publiczne zakładki…');
+      this.events.onStatus(`Sprawdzam ${this.source.label}…`);
       await this.engine.refreshPrices();
-      const search = await this.trade.searchAccountItems(this.league, this.profile.accountName, this.profile.realm);
-      // The search lists everything currently in the public tabs (up to 100 newest): report it so
-      // items that disappeared (sold, moved out) can be greyed out in the tab view.
-      this.events.onPresent?.(search.result, search.total);
-      const unseen = search.result.filter((id) => !this.seen.has(id));
-      // Price in batches so one check never floods the trade site; the rest waits for the next check.
+      const scan = await this.source.scan();
+      this.events.onPresent?.(scan.ids, scan.complete);
+      const unseen = scan.ids.filter((id) => !this.seen.has(id) && !this.skippedThisRun.has(id));
       const batch = unseen.slice(0, BATCH);
-      const listings = batch.length ? await this.trade.fetch(batch, search.id) : [];
+      const loaded = await scan.load(batch);
+      // Only priced items count as seen: items skipped by the tab filter come back when the filter changes.
       const priced: PricedItem[] = [];
-      const tabs = new Set<string>();
-      let otherTab = 0;
-      for (let i = 0; i < listings.length; i++) {
-        const l = listings[i];
-        this.seen.add(l.id);
-        const tab = l.listing?.stash?.name ?? '';
-        tabs.add(tab);
-        if (this.profile.watchedTab && tab.toLowerCase() !== this.profile.watchedTab.toLowerCase()) {
-          otherTab++;
-          continue;
-        }
-        const item = normalizeItem(l.item);
-        this.events.onStatus(`Wyceniam ${i + 1}/${listings.length}: ${item.name || item.typeLine || 'przedmiot'}…`);
-        priced.push({
-          item,
-          price: await this.safePrice(item),
-          firstSeen: new Date().toISOString(),
-          location: listingLocation(l, item),
-          present: true,
-        });
-        if (priced.length % 5 === 0) {
-          this.events.onItems(priced.splice(0));
-        }
+      for (let i = 0; i < loaded.length; i++) {
+        const { item, location } = loaded[i];
+        this.seen.add(item.id);
+        this.events.onStatus(`Wyceniam ${i + 1}/${loaded.length}: ${item.name || item.typeLine || 'przedmiot'}…`);
+        const now = new Date().toISOString();
+        priced.push({ item, price: await this.safePrice(item), firstSeen: now, pricedAt: now, location, present: true });
+        if (priced.length % 5 === 0) this.events.onItems(priced.splice(0));
       }
       if (priced.length) this.events.onItems(priced);
-      this.events.onStatus(this.describe(search.total, unseen.length - batch.length, otherTab, tabs));
+      // Skipped (other tab) ids are remembered for this run only, so they are not fetched again every check.
+      const loadedIds = new Set(loaded.map((l) => l.item.id));
+      batch.forEach((id) => { if (!loadedIds.has(id)) this.skippedThisRun.add(id); });
+      if (scan.ids.length === 0 && this.emptyHint === undefined && this.events.onEmpty) this.emptyHint = await this.events.onEmpty();
+      this.events.onStatus(this.describe(scan.total, Math.max(0, unseen.length - batch.length), this.skippedThisRun.size, scan.tabs));
     } catch (e) {
       console.error('Błąd sprawdzania zakładek:', e);
       this.events.onError(e instanceof Error ? e.message : String(e));
@@ -102,16 +93,20 @@ export class StashWatcher {
     }
   }
 
-  private describe(total: number, waiting: number, otherTab: number, tabs: Set<string>): string {
+  private describe(total: number, waiting: number, skipped: number, tabs: string[]): string {
     const time = new Date().toLocaleTimeString();
     if (total === 0) {
-      return `${time} · Nie znaleziono żadnych przedmiotów konta ${this.profile.accountName} w lidze ${this.league}. `
-        + 'Ustaw w grze zakładkę jako „Public” (bez ceny) – przedmioty pojawiają się na trade po ok. 5 minutach.';
+      const base = this.profile.stashSource === 'session'
+        ? `${time} · Zakładki konta ${this.profile.accountName} w lidze ${this.league} są puste.`
+        : `${time} · Nie znaleziono żadnych przedmiotów konta ${this.profile.accountName} w lidze ${this.league}. `
+          + 'Ustaw w grze zakładkę jako „Public” (bez ceny) – przedmioty pojawiają się na trade po ok. 5 minutach. '
+          + 'Albo włącz w profilu „Wszystkie zakładki (POESESSID)”.';
+      return this.emptyHint ? `${base} ${this.emptyHint}` : base;
     }
-    const parts = [`${time} · Na trade widać ${total} Twoich przedmiotów`];
+    const parts = [`${time} · Widać ${total} Twoich przedmiotów (${this.source.label})`];
     if (waiting > 0) parts.push(`do wyceny w kolejnych sprawdzeniach: ${waiting}`);
-    if (otherTab > 0) {
-      parts.push(`pominięto ${otherTab} z innych zakładek (obserwowana: „${this.profile.watchedTab}”, znalezione: ${[...tabs].map((t) => `„${t}”`).join(', ')})`);
+    if (skipped > 0) {
+      parts.push(`pominięto ${skipped} z innych zakładek (wybrane: „${tabFilter(this.profile.watchedTab).join('”, „')}”${tabs.length ? `, znalezione: ${tabs.map((t) => `„${t}”`).join(', ')}` : ''}) – wyczyść pole zakładki w profilu, żeby wyceniać wszystkie`);
     }
     return parts.join(' · ');
   }

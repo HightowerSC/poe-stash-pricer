@@ -32,6 +32,52 @@ export class TradeClient {
     return this.search(league, query, realm);
   }
 
+  /**
+   * One stash tab from the legacy stash API (needs POESESSID; GGG may answer 403 for it).
+   * With withTabs=true the answer also lists all tabs: { numTabs, tabs: [{ n, i, type }], items }.
+   */
+  async stashTab(league: string, account: string, realm: Realm, index: number, withTabs: boolean): Promise<{ numTabs?: number; tabs?: { n: string; i: number; type?: string; hidden?: boolean }[]; items: any[] }> {
+    if (!this.sessionId) throw new Error('Brak POESESSID w ustawieniach profilu.');
+    const url = `${SITE}/character-window/get-stash-items?accountName=${encodeURIComponent(account)}&realm=${realm}`
+      + `&league=${encodeURIComponent(league)}&tabs=${withTabs ? 1 : 0}&tabIndex=${index}`;
+    return (await this.legacy(url)) as any;
+  }
+
+  /** Characters of the account (needs a public "Characters" tab on the profile, or POESESSID). */
+  async characters(account: string, realm: Realm): Promise<any[]> {
+    return (await this.legacy(`${SITE}/character-window/get-characters?accountName=${encodeURIComponent(account)}&realm=${realm}`)) as any[];
+  }
+
+  /** Equipped items, flasks and socketed gems of one character: { character, items }. */
+  async characterItems(account: string, character: string, realm: Realm): Promise<{ character: any; items: any[] }> {
+    return (await this.legacy(`${SITE}/character-window/get-items?accountName=${encodeURIComponent(account)}&character=${encodeURIComponent(character)}&realm=${realm}`)) as any;
+  }
+
+  /** Allocated passives and socketed jewels: { hashes, items, mastery_effects }. */
+  async passives(account: string, character: string, realm: Realm): Promise<{ hashes?: number[]; items?: any[] }> {
+    return (await this.legacy(`${SITE}/character-window/get-passive-skills?accountName=${encodeURIComponent(account)}&character=${encodeURIComponent(character)}&realm=${realm}`)) as any;
+  }
+
+  /** GET on the old character-window endpoints, with errors explained in Polish. */
+  private async legacy(url: string): Promise<unknown> {
+    let res: Response;
+    try {
+      res = await this.call(url, { method: 'GET' });
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      if (/HTTP 403/.test(m)) {
+        throw new Error(this.sessionId
+          ? 'pathofexile.com odmówił dostępu (403): POESESSID jest nieaktualny albo GGG zablokowało ten endpoint. Zaloguj się ponownie na stronie i skopiuj nowy POESESSID.'
+          : 'pathofexile.com odmówił dostępu (403): profil jest prywatny. W ustawieniach konta na pathofexile.com odznacz „Hide characters” albo wpisz POESESSID w profilu aplikacji.');
+      }
+      if (/HTTP 404/.test(m)) throw new Error('Nie znaleziono konta albo postaci – sprawdź nazwę konta z numerem (np. Exile#1234).');
+      throw e;
+    }
+    const json = (await res.json()) as any;
+    if (json?.error) throw new Error(`pathofexile.com: ${json.error.message ?? 'błąd'}`);
+    return json;
+  }
+
   async search(league: string, query: unknown, realm: Realm = 'pc'): Promise<TradeSearchResult> {
     const realmPart = realm === 'pc' ? '' : `${realm}/`;
     const res = await this.call(`${SITE}/api/trade/search/${realmPart}${encodeURIComponent(league)}`, {
