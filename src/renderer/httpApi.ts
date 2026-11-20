@@ -40,7 +40,7 @@ export function httpApi(): PricerApi {
   const sessionL = new Set<(s: SessionState) => void>();
   const checksL = new Set<(c: any[]) => void>();
   const statusL = new Set<(s: { text: string; error?: boolean }) => void>();
-  const limitL = new Set<(s: { waitSeconds: number; queued: number }) => void>();
+  const limitL = new Set<(s: { waitSeconds: number; queued: number; lastHour?: number }) => void>();
 
   const events = new EventSource('/api/events');
   events.addEventListener('items', (e) => itemL.forEach((l) => l(JSON.parse((e as MessageEvent).data))));

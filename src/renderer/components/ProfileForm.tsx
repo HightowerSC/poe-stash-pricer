@@ -174,6 +174,18 @@ export function ProfileForm({ initial, onSave, onCancel }: Props) {
           </select>
         </label>
       </div>
+      <label>
+        Zapytania do trade (pathofexile.com)
+        <select value={p.tradeMode} onChange={(e) => set('tradeMode', e.target.value as Profile['tradeMode'])}>
+          <option value="saver">Oszczędny (zalecany) – mało zapytań, bez ryzyka blokady</option>
+          <option value="normal">Normalny – szybciej i dokładniej, więcej zapytań</option>
+        </select>
+        <span className="hint">
+          Oszczędny: rare z trade tylko z min. 2 dobrymi modami, max 2 wyszukiwania na przedmiot, wyniki pamiętane 30 min,
+          skrzynia czytana co 10 min, pilnowanie ulepszeń co 60 min, „Przelicz” pomija przedmioty wycenione z trade w ostatniej dobie i tanie.
+          Waluta, karty, gemy i unikaty zawsze idą z poe.ninja – bez zapytań do trade.
+        </span>
+      </label>
       <NotifySettings value={p} onChange={(patch) => setP({ ...p, ...patch })} />
       <label>
         Webhook Discord (opcjonalnie)

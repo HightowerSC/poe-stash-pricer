@@ -113,3 +113,24 @@ describe('TradeClient through the gate', () => {
     expect(posts).toBe(1);
   });
 });
+
+describe('trade mode', () => {
+  it('saver mode uses half of each limit and keeps answers longer', async () => {
+    const { applyTradeMode } = await import('./tradeLimiter');
+    const { gate } = fakeGate();
+    applyTradeMode('saver', gate);
+    expect(safeMax(16)).toBe(8);
+    expect(gate.ttlScale).toBe(6);
+    applyTradeMode('normal', gate);
+    expect(safeMax(16)).toBe(12);
+  });
+
+  it('counts requests of the last hour', async () => {
+    const { gate, advance } = fakeGate();
+    await gate.request('https://x/api/trade/fetch/a', async () => ok());
+    await gate.request('https://x/api/trade/fetch/b', async () => ok());
+    expect(gate.lastHour()).toBe(2);
+    advance(3_600_001);
+    expect(gate.lastHour()).toBe(0);
+  });
+});

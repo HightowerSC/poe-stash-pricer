@@ -65,7 +65,7 @@ export interface PricerApi {
   onSession(cb: (s: SessionState) => void): () => void;
   onStatus(cb: (status: { text: string; error?: boolean }) => void): () => void;
   /** Queue/wait state of the shared pathofexile.com rate limiter. */
-  onTradeLimit?(cb: (s: { waitSeconds: number; queued: number }) => void): () => void;
+  onTradeLimit?(cb: (s: { waitSeconds: number; queued: number; lastHour?: number }) => void): () => void;
 }
 
 declare global {

@@ -222,6 +222,7 @@ h4 { font-size: 14px; }
 .status-line.error { color: var(--bad); }
 .toast { margin-left: auto; color: var(--good); }
 .trade-wait { margin-left: 10px; padding: 1px 8px; border-radius: 10px; background: rgba(200, 166, 90, 0.18); color: #e0c27a; white-space: nowrap; }
+.trade-count { margin-left: 10px; color: var(--muted, #999); white-space: nowrap; font-size: 0.9em; }
 .spark { display: block; }
 .spark-label { fill: var(--muted); font-size: 10px; font-family: Inter, sans-serif; }
 .spark-empty { color: #5d5647; font-size: 12px; padding: 14px 0; }

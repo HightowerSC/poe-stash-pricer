@@ -97,7 +97,10 @@ export class PricingEngine {
       case 'flask':
       case 'equipment': {
         const filters = statFilters(item, this.stats);
-        if ((r === 'rare' || r === 'magic') && hasValuableMods(filters)) return withSpecial(item, await this.byTrade(item, {}));
+        // Saver mode: one good mod is rarely worth trade requests – ask trade only for 2+ (or a required one).
+        const good = filters.filter((f) => f.required || f.weight >= 6);
+        const enough = this.profile.tradeMode === 'normal' ? hasValuableMods(filters) : good.some((f) => f.required) || good.length >= 2;
+        if ((r === 'rare' || r === 'magic') && enough) return withSpecial(item, await this.byTrade(item, {}));
         // No valuable mods: maybe the base itself is worth something.
         if (isInterestingBase(item)) {
           return this.index.priceBase(item) ?? this.byTrade(item, { baseOnly: true });
@@ -163,9 +166,11 @@ export class PricingEngine {
   private async byTrade(item: PoeItem, opts: { baseOnly?: boolean; filters?: StatFilter[]; strict?: boolean; name?: string }): Promise<PriceEstimate> {
     if (this.stats.size === 0 && !opts.baseOnly) return unpriced(item, 'Brak danych statystyk trade');
     const filters = opts.filters ?? statFilters(item, this.stats);
-    const keeps = opts.baseOnly || opts.filters ? [0] : [6, 4, 3, 2, 1];
+    // 'saver' mode: at most 2 searches + 1 fetch per item; 'normal': up to 6 searches + 2 fetches.
+    const saver = this.profile.tradeMode !== 'normal';
+    const keeps = opts.baseOnly || opts.filters ? [0] : saver ? [4, 2] : [6, 4, 3, 2, 1];
     const steps: QueryOptions[] = keeps.map((keep) => ({ keep, baseOnly: opts.baseOnly, name: opts.name }));
-    if (!opts.strict) steps.push({ ...steps[steps.length - 1], relaxMisc: true });
+    if (!opts.strict && !saver) steps.push({ ...steps[steps.length - 1], relaxMisc: true });
     let last: { id: string; ids: string[]; chosen: ReturnType<typeof buildQuery>['chosen']; relaxed: string[] } | null = null;
 
     for (const step of steps) {
@@ -177,7 +182,7 @@ export class PricingEngine {
     }
     if (!last || last.ids.length === 0) return unpriced(item, 'Brak podobnych ofert na trade');
 
-    const listings = await this.trade.fetch(last.ids.slice(0, 20), last.id);
+    const listings = await this.trade.fetch(last.ids.slice(0, saver ? 10 : 20), last.id);
     const comparables = listings.flatMap((l) =>
       toComparables([l], (c) => this.chaosRates.get(c) ?? null, similarity(last!.chosen, normalizeItem(l.item), this.stats)),
     );

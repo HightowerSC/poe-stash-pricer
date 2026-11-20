@@ -46,7 +46,7 @@ export function App() {
   const [editing, setEditing] = useState(false);
   const [items, setItems] = useState<PricedItem[]>([]);
   const [status, setStatus] = useState<{ text: string; error?: boolean }>({ text: 'Zatrzymane' });
-  const [tradeLimit, setTradeLimit] = useState<{ waitSeconds: number; queued: number }>({ waitSeconds: 0, queued: 0 });
+  const [tradeLimit, setTradeLimit] = useState<{ waitSeconds: number; queued: number; lastHour?: number }>({ waitSeconds: 0, queued: 0 });
   const [running, setRunning] = useState(false);
   const [league, setLeague] = useState('');
   const [divine, setDivine] = useState<number | null>(null);
@@ -258,6 +258,11 @@ export function App() {
             {tradeLimit.waitSeconds > 0 && (
               <span className="trade-wait" title="pathofexile.com ogranicza liczbę zapytań – aplikacja sama czeka, żeby nie dostać blokady. Wycena Ctrl+C idzie pierwsza.">
                 ⏳ czekam na limit trade, {tradeLimit.waitSeconds} s{tradeLimit.queued > 1 ? ` (w kolejce: ${tradeLimit.queued})` : ''}
+              </span>
+            )}
+            {(tradeLimit.lastHour ?? 0) > 0 && (
+              <span className="trade-count" title="Ile zapytań aplikacja wysłała do pathofexile.com (trade, skrzynia, postać) w ostatniej godzinie. Mniej: ⚙ Ustawienia → Zapytania do trade → Oszczędny.">
+                trade: {tradeLimit.lastHour} zapytań/h
               </span>
             )}
             {toast && <span className="toast">{toast}</span>}

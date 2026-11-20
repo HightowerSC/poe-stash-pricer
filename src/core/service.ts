@@ -36,7 +36,7 @@ import { runLoot, summarizeStrategies } from './market/farm';
 import { decodePob, parsePobXml, pobRawUrl, type PobItem } from './hub/pob';
 import type { PoeItem, ShoppingList, ShoppingRow } from '../shared/types';
 import { buildCharacter, demoCharacter, demoCharacters, sortCharacters, toSummary } from './character';
-import { tradeGate, withTradePriority, type TradeLimitStatus } from './tradeLimiter';
+import { applyTradeMode, tradeGate, withTradePriority, type TradeLimitStatus } from './tradeLimiter';
 import { isSkipped, type SkipPrefs } from './pricing/skip';
 
 export type ServiceEvent =
@@ -60,6 +60,23 @@ function cleanChallenges(list: Challenge[]): Challenge[] {
 }
 
 const safe = (league: string) => league.replace(/[^\w-]/g, '_');
+
+/** Saver mode: stash read and upgrade watch not more often than this. */
+const SAVER_POLL_SECONDS = 600;
+const SAVER_WATCH_MINUTES = 60;
+const SAVER_FRESH_MS = 24 * 3_600_000;
+
+/**
+ * Should a mass re-price touch this item? poe.ninja prices are free (no trade requests), so they always
+ * are. In saver mode, items priced from trade are skipped when priced in the last 24 h or worth less than
+ * the profile's minimum (or 1c) – each of them costs a few trade requests.
+ */
+export function worthRepricing(p: PricedItem, profile: Pick<Profile, 'tradeMode' | 'minValueChaos'>, now = Date.now()): boolean {
+  if (p.price.source === 'poe.ninja' || profile.tradeMode === 'normal') return true;
+  const age = now - Date.parse(p.pricedAt ?? p.firstSeen);
+  if (age < SAVER_FRESH_MS) return false;
+  return (p.price.chaos ?? 0) >= Math.max(1, profile.minValueChaos);
+}
 
 export class PricerService {
   private watcher: StashWatcher | null = null;
@@ -93,6 +110,7 @@ export class PricerService {
     fs.mkdirSync(dataDir, { recursive: true });
     this.scheduleUpgradeWatch();
     tradeGate.onStatus((payload) => this.emit({ type: 'tradeLimit', payload }));
+    setInterval(() => tradeGate.refresh(), 60_000).unref?.();
   }
 
   on(cb: (e: ServiceEvent) => void): () => void {
@@ -127,6 +145,8 @@ export class PricerService {
 
   saveSettings(s: AppSettings) {
     this.writeJson('settings.json', { ...s, profiles: s.profiles.map(upgradeProfile) });
+    try { applyTradeMode(this.activeProfile().tradeMode); } catch { /* no active profile */ }
+    this.scheduleUpgradeWatch();
     this.applySkip();
   }
 
@@ -270,6 +290,7 @@ export class PricerService {
       this.status(`Nie udało się pobrać listy lig (${msg(e)}) – używam ustawienia z profilu.`, true);
     }
     this.league = resolveLeague(profile.league, profile.hardcore, leagues);
+    applyTradeMode(profile.tradeMode);
     const trade = new TradeClient(fetch, profile.accountName, profile.poesessid.trim() || undefined);
     this.trade = trade;
     this.profile = profile;
@@ -308,7 +329,9 @@ export class PricerService {
     // Only items we actually priced count as seen (older versions also stored skipped ones, which hid them for good).
     // Items saved without a stash position (older versions) are fetched again so they show up in the tab view.
     const pricedIds = new Set(this.items.filter((p) => p.location).map((p) => p.item.id));
-    this.watcher = new StashWatcher(profile, this.league, source, engine, {
+    // Saver mode reads the stash at most every 10 minutes (every tab is one request to GGG).
+    const pollProfile = profile.tradeMode === 'normal' ? profile : { ...profile, pollSeconds: Math.max(profile.pollSeconds, SAVER_POLL_SECONDS) };
+    this.watcher = new StashWatcher(pollProfile, this.league, source, engine, {
       onItems(newItems) {
         self.divineRate = engine.divineRate ?? self.divineRate;
         const enriched = self.enrich(newItems, profile);
@@ -554,7 +577,10 @@ export class PricerService {
     this.watchTimer = null;
     const { settings } = this.getUpgradeWatch();
     if (!settings.enabled) return;
-    this.watchTimer = setInterval(() => { void withTradePriority('background', () => this.runUpgradeWatch(false)); }, settings.everyMinutes * 60_000);
+    let saver = true;
+    try { saver = this.activeProfile().tradeMode !== 'normal'; } catch { /* no profile yet */ }
+    const minutes = saver ? Math.max(settings.everyMinutes, SAVER_WATCH_MINUTES) : settings.everyMinutes;
+    this.watchTimer = setInterval(() => { void withTradePriority('background', () => this.runUpgradeWatch(false)); }, minutes * 60_000);
     this.watchTimer.unref?.();
   }
 
@@ -825,8 +851,12 @@ export class PricerService {
     }
     if (!engine || !this.profile) throw new Error('Najpierw kliknij Start – przeliczanie korzysta z cen z trade i poe.ninja.');
     if (this.repricing) throw new Error('Przeliczanie już trwa.');
-    const targets = this.items.filter((p) => p.present !== false && (!ids || ids.includes(p.item.id)) && !isSkipped(p.item, this.skip));
     const profile = this.profile;
+    const all = this.items.filter((p) => p.present !== false && (!ids || ids.includes(p.item.id)) && !isSkipped(p.item, this.skip));
+    // "Przelicz" for everything skips items that would only cost trade requests for nothing (see worthRepricing).
+    const targets = ids ? all : all.filter((p) => worthRepricing(p, profile));
+    const skipped = all.length - targets.length;
+    if (skipped) this.status(`Przeliczam ${targets.length} przedmiotów, pomijam ${skipped} (wycenione z trade niedawno albo tanie – oszczędzam limit).`);
     void withTradePriority('background', () => this.repriceItems(targets, engine, profile));
     return { queued: targets.length };
   }
@@ -871,10 +901,10 @@ export class PricerService {
       if (!engine || this.repricing) return;
       const limit = Date.now() - profile.repriceHours * 3_600_000;
       const stale = this.items
-        .filter((p) => p.present !== false && Date.parse(p.pricedAt ?? p.firstSeen) < limit && !isSkipped(p.item, this.skip))
+        .filter((p) => p.present !== false && Date.parse(p.pricedAt ?? p.firstSeen) < limit && worthRepricing(p, profile) && !isSkipped(p.item, this.skip))
         .sort((a, b) => (b.price.chaos ?? 0) - (a.price.chaos ?? 0))
-        .slice(0, 10);
-      if (stale.length) void this.repriceItems(stale, engine, profile);
+        .slice(0, profile.tradeMode === 'normal' ? 10 : 5);
+      if (stale.length) void withTradePriority('background', () => this.repriceItems(stale, engine, profile));
     }, 10 * 60_000);
     this.repriceTimer.unref?.();
   }
