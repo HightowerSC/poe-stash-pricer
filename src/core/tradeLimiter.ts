@@ -56,9 +56,15 @@ const DEFAULTS: Record<PolicyKey, Limit[]> = {
   character: [{ max: 30, period: 60 }],
 };
 
+/** Share of each GGG limit the app may use ('saver' mode uses half). */
+let budget = 0.8;
+export function setTradeBudget(fraction: number) {
+  budget = Math.min(0.9, Math.max(0.2, fraction));
+}
+
 /** Use only part of each limit: other tabs/tools on the same IP count too. */
-export function safeMax(max: number): number {
-  return Math.max(1, Math.floor(max * 0.8));
+export function safeMax(max: number, share = budget): number {
+  return Math.max(1, Math.floor(max * share));
 }
 
 /** "8:10:60,15:60:120" → [[8,10,60],[15,60,120]] (limit = max:period:penalty, state = hits:period:restricted). */
@@ -132,6 +138,8 @@ export interface TradeLimitStatus {
   queued: number;
   /** Which kind of request is waiting (search / fetch / …). */
   policy?: PolicyKey;
+  /** Requests actually sent to pathofexile.com in the last 60 minutes. */
+  lastHour?: number;
 }
 
 interface Job {
@@ -159,6 +167,10 @@ export class TradeGate {
   private lastStatus = '';
   private cache = new Map<string, { until: number; value: unknown }>();
   private inflight = new Map<string, { promise: Promise<unknown>; box: PriorityBox }>();
+  /** Send times of all requests in the last hour, for the counter in the UI. */
+  private sent: number[] = [];
+  /** Multiplies cache lifetimes ('saver' mode keeps answers longer). */
+  ttlScale = 1;
 
   constructor(private readonly now: () => number = Date.now, private readonly sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))) {}
 
@@ -192,6 +204,7 @@ export class TradeGate {
 
   /** Cached and de-duplicated call: same key → same answer for ttlMs, and only one request in flight. */
   async cached<T>(key: string, ttlMs: number, produce: () => Promise<T>): Promise<T> {
+    ttlMs *= this.ttlScale;
     const now = this.now();
     const hit = this.cache.get(key);
     if (hit && hit.until > now) return hit.value as T;
@@ -253,6 +266,7 @@ export class TradeGate {
         this.queue.splice(this.queue.indexOf(pick), 1);
         const policy = this.policy(pick.policy);
         policy.stamp(now);
+        this.sent.push(now);
         this.emit({ waitSeconds: 0, queued: this.queue.length });
         let res: Response;
         try {
@@ -279,7 +293,20 @@ export class TradeGate {
     }
   }
 
+  /** Re-sends the status so the hourly counter goes down while nothing is sent. */
+  refresh() {
+    if (!this.pumping) this.emit({ waitSeconds: 0, queued: this.queue.length });
+  }
+
+  /** Requests sent in the last hour. */
+  lastHour(): number {
+    const cut = this.now() - 3_600_000;
+    while (this.sent.length && this.sent[0] <= cut) this.sent.shift();
+    return this.sent.length;
+  }
+
   private emit(s: TradeLimitStatus) {
+    s = { ...s, lastHour: this.lastHour() };
     const key = JSON.stringify(s);
     if (key === this.lastStatus) return;
     this.lastStatus = key;
@@ -295,4 +322,10 @@ export function tradeLimitText(s: TradeLimitStatus): string {
   if (s.waitSeconds > 0) return `Czekam na limit trade, ${s.waitSeconds} s${s.queued > 1 ? ` (w kolejce: ${s.queued})` : ''}`;
   if (s.queued > 0) return `Zapytania trade w kolejce: ${s.queued}`;
   return '';
+}
+
+/** 'saver' = fewer requests (half of each limit, longer cache), 'normal' = faster. */
+export function applyTradeMode(mode: 'saver' | 'normal', gate: TradeGate = tradeGate) {
+  setTradeBudget(mode === 'saver' ? 0.5 : 0.8);
+  gate.ttlScale = mode === 'saver' ? 6 : 2;
 }

@@ -36,6 +36,11 @@ export interface Profile {
   /** Ask poeprices.info for a second opinion on rares. */
   usePoeprices: boolean;
   /**
+   * How hard the app may use the trade site: 'saver' (default) = few requests (max 2 searches per item,
+   * long cache, half of GGG's limits, stash read every 10 min); 'normal' = faster and more precise.
+   */
+  tradeMode: 'saver' | 'normal';
+  /**
    * Where the user's items come from (the trade site is used only to compare with other players' offers):
    * 'session' = the whole stash straight from GGG's stash API with the user's POESESSID,
    * 'none' = no stash scanning, only items copied in game with Ctrl+C.
